@@ -41,7 +41,10 @@ public class LoadBalancerCapabilitiesImpl extends AbstractCapabilities<NovaOpenS
 
     @Override
     public boolean healthCheckRequiresLoadBalancer() throws CloudException, InternalException {
-        return false;
+        // Openstack health monitors don't required loadbalancers, but at the same time they don't hold any port
+        // information on themselves, so we need a configured listener to have a port, and for that we need
+        // a loadbalancer. So this is why we say 'true' here.
+        return true;
     }
 
     @Override
@@ -86,7 +89,7 @@ public class LoadBalancerCapabilitiesImpl extends AbstractCapabilities<NovaOpenS
 
     @Override
     public @Nonnull Iterable<LbEndpointType> listSupportedEndpointTypes() throws CloudException, InternalException {
-        return Arrays.asList(LbEndpointType.IP);
+        return Arrays.asList(LbEndpointType.IP); // we could probably add by VM ID too by converting them to an IP, but we cannot correlate them back
     }
 
     @Override

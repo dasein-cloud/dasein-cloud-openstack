@@ -146,7 +146,7 @@ public class LoadBalancerSupportImpl extends AbstractLoadBalancerSupport<NovaOpe
                             }
                         }
                         if( options.getHealthCheckOptions() != null ) {
-                            createHealthMonitor(lbId, options.getHealthCheckOptions());
+                            createHealthMonitor(Collections.singletonList(lbId), options.getHealthCheckOptions());
                         }
                         return lbId;
                     }
@@ -220,42 +220,42 @@ public class LoadBalancerSupportImpl extends AbstractLoadBalancerSupport<NovaOpe
         return null;
     }
 
-    @Override
-    public void addServers(@Nonnull String toLoadBalancerId, @Nonnull String... serverIdsToAdd) throws CloudException, InternalException {
-        LoadBalancer lb = getLoadBalancer(toLoadBalancerId);
-        List<SubnetUtils.SubnetInfo> ranges = new ArrayList<SubnetUtils.SubnetInfo>();
-        List<Subnet> allSubnets = new ArrayList<Subnet>();
-        for( VLAN vlan : getProvider().getNetworkServices().getVlanSupport().listVlans() ) {
-            Iterator<Subnet> vlanSubnets = getProvider().getNetworkServices().getVlanSupport().listSubnets(vlan.getProviderVlanId()).iterator();
-            while( vlanSubnets.hasNext() ) {
-                allSubnets.add(vlanSubnets.next());
-            }
-        }
-        if( lb.getProviderSubnetIds() != null ) {
-            for( String subnetId : lb.getProviderSubnetIds() ) {
-                Subnet subnet = findSubnetById(allSubnets, subnetId);
-                ranges.add(new SubnetUtils(subnet.getCidr()).getInfo());
-            }
-        }
-        List<String> ipAddressesToAdd = new ArrayList<String>();
-        for( String serverId : serverIdsToAdd ) {
-            VirtualMachine vm = getProvider().getComputeServices().getVirtualMachineSupport().getVirtualMachine(serverId);
-            if( vm != null ) {
-                for(RawAddress address : vm.getPrivateAddresses() ) {
-                    for( SubnetUtils.SubnetInfo range : ranges ) {
-                        if( range.isInRange(address.getIpAddress()) ) {
-                            ipAddressesToAdd.add(address.getIpAddress());
-                            break;
-                        }
-                    }
-                }
-            }
-        }
-        if( ipAddressesToAdd.isEmpty() ) {
-            throw new InternalException("None of the requested server ids match to subnets assigned to load balancer");
-        }
-        addIPEndpoints(toLoadBalancerId, ipAddressesToAdd.toArray(new String[ipAddressesToAdd.size()]));
-    }
+//    @Override
+//    public void addServers(@Nonnull String toLoadBalancerId, @Nonnull String... serverIdsToAdd) throws CloudException, InternalException {
+//        LoadBalancer lb = getLoadBalancer(toLoadBalancerId);
+//        List<SubnetUtils.SubnetInfo> ranges = new ArrayList<SubnetUtils.SubnetInfo>();
+//        List<Subnet> allSubnets = new ArrayList<Subnet>();
+//        for( VLAN vlan : getProvider().getNetworkServices().getVlanSupport().listVlans() ) {
+//            Iterator<Subnet> vlanSubnets = getProvider().getNetworkServices().getVlanSupport().listSubnets(vlan.getProviderVlanId()).iterator();
+//            while( vlanSubnets.hasNext() ) {
+//                allSubnets.add(vlanSubnets.next());
+//            }
+//        }
+//        if( lb.getProviderSubnetIds() != null ) {
+//            for( String subnetId : lb.getProviderSubnetIds() ) {
+//                Subnet subnet = findSubnetById(allSubnets, subnetId);
+//                ranges.add(new SubnetUtils(subnet.getCidr()).getInfo());
+//            }
+//        }
+//        List<String> ipAddressesToAdd = new ArrayList<String>();
+//        for( String serverId : serverIdsToAdd ) {
+//            VirtualMachine vm = getProvider().getComputeServices().getVirtualMachineSupport().getVirtualMachine(serverId);
+//            if( vm != null ) {
+//                for(RawAddress address : vm.getPrivateAddresses() ) {
+//                    for( SubnetUtils.SubnetInfo range : ranges ) {
+//                        if( range.isInRange(address.getIpAddress()) ) {
+//                            ipAddressesToAdd.add(address.getIpAddress());
+//                            break;
+//                        }
+//                    }
+//                }
+//            }
+//        }
+//        if( ipAddressesToAdd.isEmpty() ) {
+//            throw new InternalException("None of the requested server ids match to subnets assigned to load balancer");
+//        }
+//        addIPEndpoints(toLoadBalancerId, ipAddressesToAdd.toArray(new String[ipAddressesToAdd.size()]));
+//    }
 
     @Override
     public void removeIPEndpoints(@Nonnull String fromLoadBalancerId, @Nonnull String... addresses) throws CloudException, InternalException {
@@ -297,7 +297,7 @@ public class LoadBalancerSupportImpl extends AbstractLoadBalancerSupport<NovaOpe
 
     @Override
     public LoadBalancerHealthCheck createLoadBalancerHealthCheck(@Nonnull HealthCheckOptions options) throws CloudException, InternalException {
-        return createHealthMonitor(options.getProviderLoadBalancerId(), options);
+        return createHealthMonitor(Collections.singletonList(options.getProviderLoadBalancerId()), options);
     }
 
     @Override
@@ -365,8 +365,8 @@ public class LoadBalancerSupportImpl extends AbstractLoadBalancerSupport<NovaOpe
             JSONObject result = method.getNetworks(getHealthMonitorsResource(), providerLBHealthCheckId, false);
 
             if( result == null ) {
-                logger.error("create(): Method executed successfully, but no health monitor was created");
-                throw new CloudException("Method executed successfully, but no health monitor was created");
+                logger.error("create(): Method executed successfully, but no health monitor was found");
+                throw new CloudException("Method executed successfully, but no health monitor was found");
             }
             try {
                 return toLoadBalancerHealthCheck(result.getJSONObject("health_monitor"));
@@ -385,37 +385,21 @@ public class LoadBalancerSupportImpl extends AbstractLoadBalancerSupport<NovaOpe
         APITrace.begin(getProvider(), "LB.modifyHealthCheck");
 
         try {
-            Map<String, Object> lb = new HashMap<String, Object>();
-            // CAVEAT: these are the only three attributes that aren't read-only in OS LB
-            lb.put("delay", opt.getInterval());
-            lb.put("timeout", opt.getTimeout());
-            lb.put("max_retries", opt.getUnhealthyCount());
-
-            String urlPath = "";
-            if( opt.getPort() > 0 ) {
-                urlPath = ":" + opt.getPort();
-            }
-            if( opt.getPath() != null ) {
-                if( !opt.getPath().startsWith("/") ) {
-                    urlPath += "/";
-                }
-                urlPath += opt.getPath();
-            }
-            if( urlPath.length() > 0 ) {
-                lb.put("url_path", urlPath);
-            }
-            Map<String, Object> json = new HashMap<String, Object>();
-
-            json.put("health_monitor", lb);
-            NovaMethod method = new NovaMethod(getProvider());
-
-            method.putNetworks(getHealthMonitorsResource(), providerLBHealthCheckId, new JSONObject(json), null);
-
-            return getLoadBalancerHealthCheck(providerLBHealthCheckId, opt.getProviderLoadBalancerId());
+            // CAVEAT: these are the only three attributes that aren't read-only in OS LB, so let's delete and re-create
+            LoadBalancerHealthCheck hc = getLoadBalancerHealthCheck(providerLBHealthCheckId, null);
+            safeDeleteLoadBalancerHealthCheck(hc);
+            return createHealthMonitor(hc.getProviderLoadBalancerIds(), opt);
         }
         finally {
             APITrace.end();
         }
+    }
+
+    private void safeDeleteLoadBalancerHealthCheck(LoadBalancerHealthCheck hc) throws CloudException, InternalException {
+        for( String loadBalancer: hc.getProviderLoadBalancerIds() ) {
+            detatchHealthCheck(loadBalancer, hc.getProviderLBHealthCheckId());
+        }
+        deleteHealthMonitor(hc.getProviderLBHealthCheckId());
     }
 
     @Override
@@ -424,12 +408,7 @@ public class LoadBalancerSupportImpl extends AbstractLoadBalancerSupport<NovaOpe
         while( healthChecks.hasNext() ) {
             LoadBalancerHealthCheck hc = healthChecks.next();
             if( hc.getProviderLoadBalancerIds().contains(providerLoadBalancerId) ) {
-                if( hc.getProviderLoadBalancerIds().size() == 1 ) {
-                    deleteHealthMonitor(hc.getProviderLBHealthCheckId());
-                }
-                else {
-                    detatchHealthCheck(providerLoadBalancerId, hc.getProviderLBHealthCheckId());
-                }
+                safeDeleteLoadBalancerHealthCheck(hc);
             }
         }
     }
@@ -437,14 +416,14 @@ public class LoadBalancerSupportImpl extends AbstractLoadBalancerSupport<NovaOpe
     public void detatchHealthCheck(@Nonnull String loadBalancerId, @Nonnull String providerLBHealthCheckId) throws CloudException, InternalException {
         APITrace.begin(getProvider(), "LB.deleteHealthMonitor");
         try {
-            new NovaMethod(getProvider()).deleteNetworks(getLoadBalancersResource(), "health_monitors/"+providerLBHealthCheckId);
+            new NovaMethod(getProvider()).deleteNetworks(getLoadBalancersResource(), loadBalancerId + "/health_monitors/"+providerLBHealthCheckId);
         }
         finally {
             APITrace.end();
         }
     }
 
-    private LoadBalancerHealthCheck createHealthMonitor(@Nullable String lbId, @Nonnull HealthCheckOptions opt) throws InternalException, CloudException {
+    private LoadBalancerHealthCheck createHealthMonitor(@Nonnull List<String> loadbalancerIds, @Nonnull HealthCheckOptions opt) throws InternalException, CloudException {
         APITrace.begin(getProvider(), "LB.createListener");
 
         try {
@@ -454,18 +433,9 @@ public class LoadBalancerSupportImpl extends AbstractLoadBalancerSupport<NovaOpe
             lb.put("delay", opt.getInterval());
             lb.put("timeout", opt.getTimeout());
             lb.put("max_retries", opt.getUnhealthyCount());
-            String urlPath = "";
-            if( opt.getPort() > 0 ) {
-                urlPath = ":" + opt.getPort();
-            }
+            // the opt.getPort() is ignored since OS is using the servers' private ports automatically
             if( opt.getPath() != null ) {
-                if( !opt.getPath().startsWith("/") ) {
-                    urlPath += "/";
-                }
-                urlPath += opt.getPath();
-            }
-            if( urlPath.length() > 0 ) {
-                lb.put("url_path", urlPath);
+                lb.put("url_path", opt.getPath());
             }
             Map<String, Object> json = new HashMap<String, Object>();
 
@@ -485,7 +455,7 @@ public class LoadBalancerSupportImpl extends AbstractLoadBalancerSupport<NovaOpe
             if( hc == null ) {
                 throw new CloudException("Unable to create loadbalancer health check");
             }
-            if( lbId != null ) {
+            for( String lbId : loadbalancerIds ) {
                 attachHealthCheckToLoadBalancer(lbId, hc.getProviderLBHealthCheckId());
             }
             return hc;
@@ -515,42 +485,27 @@ public class LoadBalancerSupportImpl extends AbstractLoadBalancerSupport<NovaOpe
      * @return LoadBalancerHealthCheck
      * @throws JSONException
      */
-    private @Nonnull LoadBalancerHealthCheck toLoadBalancerHealthCheck(JSONObject ob) throws JSONException {
+    private @Nonnull LoadBalancerHealthCheck toLoadBalancerHealthCheck(JSONObject ob) throws JSONException, InternalException, CloudException {
         LoadBalancerHealthCheck.HCProtocol protocol = fromOSProtocol(ob.getString("type"));
         int count = ob.getInt("max_retries");
         int port = -1;
-        String urlPath = ob.getString("url_path");
-        String path = null;
-        String[] parts = urlPath.split(":");
-        if( parts != null && parts.length == 2 ) {
-            if( parts[1].endsWith("/") ) {
-                port = Integer.parseInt(parts[1].substring(0, parts[1].length() - 1));
-                path = "/";
-            }
-            else {
-                String[] portAndPath = parts[1].split("/");
-                port = Integer.parseInt(portAndPath[0]);
-                if( portAndPath.length > 1 ) {
-                    path = "/" + portAndPath[1];
+        String path = ob.optString("url_path", null);
+        JSONArray pools = ob.optJSONArray("pools");
+        for( int i=0; i<pools.length(); i++ ) {
+            String lbId = pools.getJSONObject(i).getString("pool_id");
+            LoadBalancer lb = getLoadBalancer(lbId);
+            if( lb != null ) {
+                LbListener[] listeners = lb.getListeners();
+                if( listeners != null && listeners.length > 0 ) {
+                    port = listeners[0].getPrivatePort();
+                    break;
                 }
-            }
-        }
-        else {
-            path = urlPath;
-            switch( protocol ) {
-                case HTTPS:
-                    port = 443;
-                    break;
-                case HTTP:
-                    port = 80;
-                    break;
             }
         }
         String id = ob.getString("id");
         int timeout = ob.getInt("timeout");
         int interval = ob.getInt("delay");
         LoadBalancerHealthCheck lbhc = LoadBalancerHealthCheck.getInstance(id, protocol, port, path, interval, timeout, count, count);
-        JSONArray pools = ob.optJSONArray("pools");
         for( int i=0; i<pools.length(); i++ ) {
             lbhc.addProviderLoadBalancerId(pools.getJSONObject(i).getString("pool_id"));
         }
@@ -593,8 +548,8 @@ public class LoadBalancerSupportImpl extends AbstractLoadBalancerSupport<NovaOpe
             JSONObject result = method.postNetworks(getListenersResource(), null, new JSONObject(json), false);
 
             if( result == null ) {
-                logger.error("create(): Method executed successfully, but no load balancer was created");
-                throw new CloudException("Method executed successfully, but no load balancer was created");
+                logger.error("create(): Method executed successfully, but no listener was created");
+                throw new CloudException("Method executed successfully, but no listener was created");
             }
         }
         finally {
@@ -824,6 +779,7 @@ public class LoadBalancerSupportImpl extends AbstractLoadBalancerSupport<NovaOpe
             // Dasein can only support one, should probably extend that in core
             loadBalancer.setProviderLBHealthCheckId(monitors.getString(0));
         }
+        loadBalancer.operatingIn(regionId + "-a");
 
         return loadBalancer;
     }
