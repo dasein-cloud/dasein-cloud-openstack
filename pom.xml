@@ -2,11 +2,11 @@
     <modelVersion>4.0.0</modelVersion>
     <groupId>org.dasein</groupId>
     <artifactId>dasein-cloud-openstack</artifactId>
-    <version>2015.06.3-SNAPSHOT</version>
+    <version>2015.06.4-SNAPSHOT</version>
     <name>Dasein Cloud Nova</name>
     <description>Dasein Cloud implementation for the OpenStack APIs</description>
 
-    <url>http://github.com/greese/dasein-cloud-openstack</url>
+    <url>http://github.com/dasein-cloud/dasein-cloud-openstack</url>
 
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
@@ -25,9 +25,9 @@
     </organization>
 
     <scm>
-        <connection>scm:git:git://github.com/greese/dasein-cloud-openstack.git</connection>
-        <developerConnection>scm:git:ssh://git@github.com/greese/dasein-cloud-openstack.git</developerConnection>
-        <url>http://github.com/greese/dasein-cloud-openstack</url>
+        <connection>scm:git:git://github.com/dasein-cloud/dasein-cloud-openstack.git</connection>
+        <developerConnection>scm:git:ssh://git@github.com/dasein-cloud/dasein-cloud-openstack.git</developerConnection>
+        <url>http://github.com/dasein-cloud/dasein-cloud-openstack</url>
     </scm>
 
     <parent>
