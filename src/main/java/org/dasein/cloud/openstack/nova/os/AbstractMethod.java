@@ -1890,7 +1890,7 @@ public abstract class AbstractMethod {
             catch( IOException e ) {
                 std.error("I/O error from server communications: " + e.getMessage());
                 e.printStackTrace();
-                throw new InternalException(e);
+                throw new InternalException("Communication error while reading from cloud endpoint", e);
             }
             int code = response.getStatusLine().getStatusCode();
 
