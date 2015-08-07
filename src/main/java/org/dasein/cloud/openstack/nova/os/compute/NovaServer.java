@@ -1267,12 +1267,14 @@ public class NovaServer extends AbstractVMSupport<NovaOpenStack> {
                     String subnet = null;
                     for( int i=0; i<arr.length(); i++ ) {
                         RawAddress addr = null;
+                        String type = null;
 
                         if( getProvider().getMinorVersion() == 0 && getProvider().getMajorVersion() == 1 ) {
                             addr = new RawAddress(arr.getString(i).trim(), IPVersion.IPV4);
                         }
                         else {
                             JSONObject a = arr.getJSONObject(i);
+                            type = a.optString("OS-EXT-IPS:type");
 
                             if( a.has("version") && a.getInt("version") == 4 && a.has("addr") ) {
                                 subnet = a.getString("addr");
@@ -1284,7 +1286,16 @@ public class NovaServer extends AbstractVMSupport<NovaOpenStack> {
                             }
                         }
                         if( addr != null ) {
-                            if( addr.isPublicIpAddress() ) {
+                            if ( "public".equalsIgnoreCase(name) || "internet".equalsIgnoreCase(name)) {
+                                    pub.add(addr);
+                            }
+                            else if ("floating".equalsIgnoreCase(type)) {
+                                pub.add(addr);
+                            }
+                            else if ("fixed".equalsIgnoreCase(type)) {
+                                priv.add(addr);
+                            }
+                            else if( addr.isPublicIpAddress() ) {
                                 pub.add(addr);
                             }
                             else {
