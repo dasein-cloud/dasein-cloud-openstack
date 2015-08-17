@@ -285,7 +285,7 @@ public class NovaServerCapabilities extends AbstractCapabilities<NovaOpenStack> 
 
     @Override
     public boolean supportsCloudStoredShellKey() throws InternalException, CloudException{
-        return false;
+        return true;
     }
 
     @Override
