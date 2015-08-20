@@ -298,6 +298,9 @@ public class NovaServer extends AbstractVMSupport<NovaOpenStack> {
             NovaMethod method = new NovaMethod(getProvider());
 
             json.put("name", options.getHostName());
+            if( options.getBootstrapPassword() != null ) {
+                json.put("adminPass", options.getBootstrapPassword());
+            }
             if( options.getUserData() != null ) {
                 try {
                     json.put("user_data", Base64.encodeBase64String(options.getUserData().getBytes("utf-8")));
