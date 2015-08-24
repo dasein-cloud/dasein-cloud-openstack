@@ -182,7 +182,7 @@ public class NovaServerCapabilities extends AbstractCapabilities<NovaOpenStack> 
     @Nonnull
     @Override
     public Requirement identifyPasswordRequirement(Platform platform) throws CloudException, InternalException {
-        return Requirement.NONE;
+        return Requirement.OPTIONAL;
     }
 
     @Nonnull
