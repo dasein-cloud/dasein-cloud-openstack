@@ -86,6 +86,10 @@ public class RackspaceLBCapabilities extends AbstractCapabilities<NovaOpenStack>
         return true;
     }
 
+    @Override public boolean healthCheckRequiresListener() throws CloudException, InternalException {
+        return false;
+    }
+
     @Override
     public Requirement healthCheckRequiresName() throws CloudException, InternalException {
         return Requirement.NONE;

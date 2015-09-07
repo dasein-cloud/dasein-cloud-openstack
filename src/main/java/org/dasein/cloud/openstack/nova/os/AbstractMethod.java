@@ -1913,19 +1913,16 @@ public abstract class AbstractMethod {
                 try {
                     if( data != null ) {
                         JSONObject ob = new JSONObject(data);
-
                         if( ob.has("overLimit") ) {
                             ob = ob.getJSONObject("overLimit");
-                            if( ob.has("retryAfter") ) {
-                                int min = ob.getInt("retryAfter");
+                            int min = ob.optInt("retryAfter", 0);
 
-                                if( min < 1 ) {
-                                    throw new CloudException(CloudErrorType.CAPACITY, 413, "Over Limit", ob.has("message") ? ob.getString("message") : "Over Limit");
-                                }
-                                try { Thread.sleep(CalendarWrapper.MINUTE * min); }
-                                catch( InterruptedException ignore ) { }
-                                return postString(authToken, endpoint, resource, payload);
+                            if( min < 1 ) {
+                                throw new CloudException(CloudErrorType.CAPACITY, 413, "Over Limit", ob.has("message") ? ob.getString("message") : "Over Limit");
                             }
+                            try { Thread.sleep(CalendarWrapper.MINUTE * min); }
+                            catch( InterruptedException ignore ) { }
+                            return postString(authToken, endpoint, resource, payload);
                         }
                     }
                 }
