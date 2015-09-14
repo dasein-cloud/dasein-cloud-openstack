@@ -1376,28 +1376,15 @@ public abstract class AbstractMethod {
         ProviderContext ctx = provider.getContext();
 
         if( ctx == null ) {
-            throw new CloudException("No context was defined for this request");
+            throw new InternalException("No context was defined for this request");
         }
-        String endpoint = ctx.getEndpoint();
+        String endpoint = ctx.getCloud().getEndpoint();
 
         if( endpoint == null ) {
-            throw new CloudException("No cloud endpoint was defined");
+            throw new InternalException("No cloud endpoint was defined");
         }
         boolean ssl = endpoint.startsWith("https");
-        int targetPort;
-        URI uri;
 
-        try {
-            uri = new URI(endpoint);
-            targetPort = uri.getPort();
-            if( targetPort < 1 ) {
-                targetPort = (ssl ? 443 : 80);
-            }
-        }
-        catch( URISyntaxException e ) {
-            throw new CloudException(e);
-        }
-        HttpHost targetHost = new HttpHost(uri.getHost(), targetPort, uri.getScheme());
         HttpParams params = new BasicHttpParams();
 
         HttpProtocolParams.setVersion(params, HttpVersion.HTTP_1_1);
@@ -1873,7 +1860,7 @@ public abstract class AbstractMethod {
             HttpResponse response;
 
             try {
-                APITrace.trace(provider, "POST " + toAPIResource(resource));
+                std.debug("POST " + toAPIResource(resource));
                 response = client.execute(post);
                 if( wire.isDebugEnabled() ) {
                     wire.debug(response.getStatusLine().toString());
@@ -1913,19 +1900,16 @@ public abstract class AbstractMethod {
                 try {
                     if( data != null ) {
                         JSONObject ob = new JSONObject(data);
-
                         if( ob.has("overLimit") ) {
                             ob = ob.getJSONObject("overLimit");
-                            if( ob.has("retryAfter") ) {
-                                int min = ob.getInt("retryAfter");
+                            int min = ob.optInt("retryAfter", 0);
 
-                                if( min < 1 ) {
-                                    throw new CloudException(CloudErrorType.CAPACITY, 413, "Over Limit", ob.has("message") ? ob.getString("message") : "Over Limit");
-                                }
-                                try { Thread.sleep(CalendarWrapper.MINUTE * min); }
-                                catch( InterruptedException ignore ) { }
-                                return postString(authToken, endpoint, resource, payload);
+                            if( min < 1 ) {
+                                throw new CloudException(CloudErrorType.CAPACITY, 413, "Over Limit", ob.has("message") ? ob.getString("message") : "Over Limit");
                             }
+                            try { Thread.sleep(CalendarWrapper.MINUTE * min); }
+                            catch( InterruptedException ignore ) { }
+                            return postString(authToken, endpoint, resource, payload);
                         }
                     }
                 }
