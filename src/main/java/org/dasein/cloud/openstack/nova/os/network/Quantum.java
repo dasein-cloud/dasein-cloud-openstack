@@ -60,7 +60,7 @@ import java.util.*;
  * @version 2013.04 initial version
  * @since 2013.04
  */
-public class Quantum extends AbstractVLANSupport {
+public class Quantum extends AbstractVLANSupport<NovaOpenStack> {
     static private final Logger logger = NovaOpenStack.getLogger(Quantum.class, "std");
 
     private String networkVersionId = null;
@@ -155,8 +155,8 @@ public class Quantum extends AbstractVLANSupport {
         }
     }
 
-    private @Nonnull String getTenantId() throws CloudException, InternalException {
-        return ((NovaOpenStack)getProvider()).getContext().getAccountNumber();
+    protected @Nonnull String getTenantId() throws CloudException, InternalException {
+        return getContext().getAccountNumber();
     }
 
     public @Nonnull String createPort(@Nonnull String subnetId, @Nonnull String vmName, @Nullable String[] firewallIds) throws CloudException, InternalException {
@@ -775,13 +775,12 @@ public class Quantum extends AbstractVLANSupport {
     public @Nonnull Iterable<VLAN> listVlans() throws CloudException, InternalException {
         APITrace.begin(getProvider(), "VLAN.listVlans");
         try {
-            NovaMethod method = new NovaMethod((NovaOpenStack)getProvider());
             JSONObject ob = null;
             if (getNetworkType().equals(QuantumType.QUANTUM) ) {
-                ob = method.getNetworks(getNetworkResource(), null, false);
+                ob = getMethod().getNetworks(getNetworkResource(), null, false);
             }
             else {
-                ob = method.getServers(getNetworkResource(), null, false);
+                ob = getMethod().getServers(getNetworkResource(), null, false);
             }
             ArrayList<VLAN> networks = new ArrayList<VLAN>();
 
@@ -811,6 +810,10 @@ public class Quantum extends AbstractVLANSupport {
         finally {
             APITrace.end();
         }
+    }
+
+    protected NovaMethod getMethod() {
+        return new NovaMethod(getProvider());
     }
 
     @Override
@@ -1050,13 +1053,16 @@ public class Quantum extends AbstractVLANSupport {
         }
     }
 
+    protected String getCurrentRegionId() throws InternalException {
+        return getContext().getRegionId();
+    }
     private @Nullable VLAN toVLAN(@Nonnull JSONObject network) throws CloudException, InternalException {
         try {
             VLAN v = new VLAN();
 
             v.setProviderOwnerId(getTenantId());
             v.setCurrentState(VLANState.AVAILABLE);
-            v.setProviderRegionId(getContext().getRegionId());
+            v.setProviderRegionId(getCurrentRegionId());
             // FIXME: REMOVE: vlans are not constrained to a DC in openstack
             //            Iterable<DataCenter> dc = getProvider().getDataCenterServices().listDataCenters(getContext().getRegionId());
             //            v.setProviderDataCenterId(dc.iterator().next().getProviderDataCenterId());
