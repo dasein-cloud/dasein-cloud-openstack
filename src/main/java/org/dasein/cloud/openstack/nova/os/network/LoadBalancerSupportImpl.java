@@ -629,7 +629,11 @@ public class LoadBalancerSupportImpl extends AbstractLoadBalancerSupport<NovaOpe
             try {
                 JSONArray list = result.getJSONArray("members");
                 for( int i = 0; i < list.length(); i++ ) {
-                    members.add(list.getJSONObject(i));
+                    JSONObject member = list.getJSONObject(i);
+                    if( (loadBalancerId != null && loadBalancerId.equals(member.optString("pool_id")) )
+                        || loadBalancerId == null) {
+                        members.add(member);
+                    }
                 }
             }
             catch( JSONException e ) {
