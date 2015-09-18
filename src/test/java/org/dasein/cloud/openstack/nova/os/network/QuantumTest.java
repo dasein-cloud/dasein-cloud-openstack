@@ -4,6 +4,7 @@ import org.apache.commons.io.IOUtils;
 import org.dasein.cloud.CloudException;
 import org.dasein.cloud.InternalException;
 import org.dasein.cloud.VisibleScope;
+import org.dasein.cloud.compute.VirtualMachine;
 import org.dasein.cloud.network.VLAN;
 import org.dasein.cloud.network.VLANState;
 import org.dasein.cloud.openstack.nova.os.NovaMethod;
@@ -15,6 +16,7 @@ import java.io.IOException;
 import java.io.InputStream;
 
 import static org.junit.Assert.*;
+import static org.mockito.Matchers.any;
 import static org.mockito.Matchers.anyBoolean;
 import static org.mockito.Matchers.anyString;
 import static org.mockito.Mockito.mock;
@@ -36,11 +38,10 @@ public class QuantumTest {
             json = new JSONObject(jsonText);
         }
         catch( IOException e ) {
-            e.printStackTrace();
-
+            throw new RuntimeException(e);
         }
         catch( JSONException e ) {
-            e.printStackTrace();
+            throw new RuntimeException(e);
         }
         when(quantum.getMethod()).thenReturn(method);
         try {
@@ -74,5 +75,43 @@ public class QuantumTest {
             fail("Unexpected exception " + e);
         }
 
+    }
+
+    @Test
+    public void listPortsTest() {
+        NovaMethod method = mock(NovaMethod.class);
+        Quantum quantum = mock(Quantum.class);
+        VirtualMachine mv = mock(VirtualMachine.class);
+        JSONObject json = null;
+        try {
+            InputStream is = getClass().getClassLoader().getResourceAsStream("nova/fixtures/list_ports.json");
+            String jsonText = IOUtils.toString(is);
+            json = new JSONObject(jsonText);
+        }
+        catch( IOException e ) {
+            throw new RuntimeException(e);
+        }
+        catch( JSONException e ) {
+            throw new RuntimeException(e);
+        }
+        when(quantum.getMethod()).thenReturn(method);
+        when(mv.getProviderVirtualMachineId()).thenReturn("blah");
+        try {
+            when(quantum.getNetworkType()).thenReturn(Quantum.QuantumType.QUANTUM);
+            when(quantum.getTenantId()).thenReturn("628b7b037c8a43ef8868327c0accda40");
+            when(quantum.getCurrentRegionId()).thenReturn("RegionOne");
+            when(method.getNetworks(anyString(), anyString(), anyBoolean())).thenReturn(json);
+            when(quantum.listPorts(any(VirtualMachine.class))).thenCallRealMethod();
+
+            Iterable<String> res = quantum.listPorts(mv);
+            assertNotNull("Returned list of ports cannot be null", res);
+            assertEquals("Returned port id does not match", "8c755759-1146-4ca1-a856-fe4867a37689", res.iterator().next());
+        }
+        catch( CloudException e ) {
+            fail("Unexpected exception " + e);
+        }
+        catch( InternalException e ) {
+            fail("Unexpected exception " + e);
+        }
     }
 }

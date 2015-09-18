@@ -228,14 +228,14 @@ public class Quantum extends AbstractVLANSupport<NovaOpenStack> {
     public @Nonnull Iterable<String> listPorts(@Nonnull VirtualMachine vm) throws CloudException, InternalException {
         APITrace.begin(getProvider(), "VLAN.listPorts");
         try {
-            NovaMethod method = new NovaMethod((NovaOpenStack)getProvider());
+            //NovaMethod method = new NovaMethod((NovaOpenStack)getProvider());
 
             JSONObject result = null;
             if (getNetworkType().equals(QuantumType.QUANTUM) ) {
-                result = method.getNetworks(getPortResource() + "?device_id="+vm.getProviderVirtualMachineId()+"&fields=id", null, false);
+                result = getMethod().getNetworks(getPortResource() + "?device_id="+vm.getProviderVirtualMachineId()+"&fields=id", null, false);
             }
             else {
-                result = method.getServers(getNetworkResource() + "/" + vm.getProviderVlanId() + "/ports", null, false);
+                result = getMethod().getServers(getNetworkResource() + "/" + vm.getProviderVlanId() + "/ports", null, false);
             }
             if( result != null && result.has("ports") ) {
                 List<String> portIds = new ArrayList<String>();
