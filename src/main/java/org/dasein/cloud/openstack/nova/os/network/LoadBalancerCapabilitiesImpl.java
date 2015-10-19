@@ -67,10 +67,6 @@ public class LoadBalancerCapabilitiesImpl extends AbstractCapabilities<NovaOpenS
         return true;
     }
 
-    @Override public boolean healthCheckRequiresListener() throws CloudException, InternalException {
-        return false;
-    }
-
     @Override
     public boolean healthCheckRequiresListener() throws CloudException, InternalException {
         return true;
