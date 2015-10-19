@@ -139,7 +139,13 @@ public class LoadBalancerSupportImpl extends AbstractLoadBalancerSupport<NovaOpe
                     JSONObject ob = result.getJSONObject("pool");
                     if( ob != null ) {
                         String lbId = ob.getString("id");
-                        createListener(lbId, subnetId, listener);
+                        try {
+                            createListener(lbId, subnetId, listener);
+                        }
+                        catch ( Throwable e ) {
+                            method.deleteNetworks(getLoadBalancersResource(), lbId);
+                            throw new CloudException(e);
+                        }
                         if( options.getEndpoints() != null ) {
                             for( LoadBalancerEndpoint endpoint : options.getEndpoints() ) {
                                 createMember(lbId, endpoint.getEndpointValue(), listener.getPrivatePort());
