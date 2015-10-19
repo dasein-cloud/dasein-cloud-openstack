@@ -1,0 +1,1 @@
+{"network": {"status": "ACTIVE", "subnets": ["4bfca102-78a9-49cf-9a9d-cfa37671dca1"], "name": "dsnnet7014", "provider:physical_network": null, "admin_state_up": true, "tenant_id": "e2312698a3534c3aab7038d46a80795d", "provider:network_type": "vxlan", "router:external": false, "shared": false, "id": "5761fd9c-30b9-4064-a42d-1b181decaa8e", "provider:segmentation_id": 13}}
