@@ -132,6 +132,11 @@ public class NovaImageCapabilities extends AbstractCapabilities<NovaOpenStack> i
     }
 
     @Override
+    public boolean supportsImageRemoval() throws CloudException, InternalException {
+        return true;
+    }
+
+    @Override
     public boolean supportsImageSharing() throws CloudException, InternalException {
         return false;
     }
@@ -152,7 +157,7 @@ public class NovaImageCapabilities extends AbstractCapabilities<NovaOpenStack> i
     }
 
     @Override
-    public NamingConstraints getImageNamingConstraints(){
+    public @Nonnull NamingConstraints getImageNamingConstraints(){
         return NamingConstraints.getAlphaNumeric(1, 100);
     }
 }
