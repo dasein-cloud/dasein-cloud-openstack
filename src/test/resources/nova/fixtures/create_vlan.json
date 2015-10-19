@@ -1,0 +1,13 @@
+{
+    "network": {
+        "metadata":
+            {"org.dasein.description": "description",
+             "org.dasein.domain": "domainName",
+             "org.dasein.dns.1": "dnsServers",
+             "org.dasein.ntp.1": "ntpServers" },
+        "label": "name",
+        "cidr": "testSubnetCidr",
+        "id": "testVlanId",
+        "name": "testVlanName"
+    }
+}

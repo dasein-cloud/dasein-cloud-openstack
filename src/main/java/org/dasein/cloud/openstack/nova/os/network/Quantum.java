@@ -123,10 +123,8 @@ public class Quantum extends AbstractVLANSupport<NovaOpenStack> {
                 cache.put(getContext(), Collections.singletonList(QuantumType.RACKSPACE));
                 return QuantumType.RACKSPACE;
             }
-            NovaMethod method = new NovaMethod((NovaOpenStack)getProvider());
             try {
-				JSONObject ob = method.getNetworks(
-                        getNetworkResourceVersion()+QuantumType.QUANTUM.getNetworkResource(), null, false);
+				JSONObject ob = getMethod().getNetworks(getNetworkResourceVersion() + QuantumType.QUANTUM.getNetworkResource(), null, false);
 
                 if( ob != null && ob.has("networks") ) {
                     cache.put(getContext(), Collections.singletonList(QuantumType.QUANTUM));
@@ -137,8 +135,7 @@ public class Quantum extends AbstractVLANSupport<NovaOpenStack> {
                 // ignore
             }
             try {
-				JSONObject ob = method.getServers(
-						QuantumType.NOVA.getNetworkResource(), null, false);
+				JSONObject ob = getMethod().getServers(QuantumType.NOVA.getNetworkResource(), null, false);
 
                 if( ob != null && ob.has("networks") ) {
                     cache.put(getContext(), Collections.singletonList(QuantumType.NOVA));
@@ -172,9 +169,8 @@ public class Quantum extends AbstractVLANSupport<NovaOpenStack> {
                 }
                 throw new CloudException("Invalid id no network or subnet found for " + subnetId);
             }
-            HashMap<String,Object> wrapper = new HashMap<String,Object>();
-            HashMap<String,Object> json = new HashMap<String,Object>();
-            NovaMethod method = new NovaMethod((NovaOpenStack)getProvider());
+            Map<String, Object> wrapper = new HashMap<String,Object>();
+            Map<String, Object> json = new HashMap<String,Object>();
 
             json.put("name", "Port for " + vmName);
             json.put("network_id", subnet.getProviderVlanId());
@@ -186,8 +182,8 @@ public class Quantum extends AbstractVLANSupport<NovaOpenStack> {
                 json.put("security_groups", firewalls);
             }
 
-            ArrayList<Map<String,Object>> ips = new ArrayList<Map<String, Object>>();
-            HashMap<String,Object> ip = new HashMap<String, Object>();
+            List<Map<String,Object>> ips = new ArrayList<Map<String, Object>>();
+            Map<String,Object> ip = new HashMap<String, Object>();
 
             ip.put("subnet_id", subnetId);
             ips.add(ip);
@@ -196,12 +192,12 @@ public class Quantum extends AbstractVLANSupport<NovaOpenStack> {
 
             wrapper.put("port", json);
 
-            JSONObject result = null;
+            JSONObject result;
             if (getNetworkType().equals(QuantumType.QUANTUM) ) {
-                result = method.postNetworks(getPortResource(), null, new JSONObject(wrapper), false);
+                result = getMethod().postNetworks(getPortResource(), null, new JSONObject(wrapper), false);
             }
             else {
-                result = method.postServers(getNetworkResource() + "/" + subnet.getProviderVlanId() + "/ports", null, new JSONObject(wrapper), false);
+                result = getMethod().postServers(getNetworkResource() + "/" + subnet.getProviderVlanId() + "/ports", null, new JSONObject(wrapper), false);
             }
             if( result != null && result.has("port") ) {
                 try {
@@ -228,14 +224,12 @@ public class Quantum extends AbstractVLANSupport<NovaOpenStack> {
     public @Nonnull Iterable<String> listPorts(@Nonnull VirtualMachine vm) throws CloudException, InternalException {
         APITrace.begin(getProvider(), "VLAN.listPorts");
         try {
-            NovaMethod method = new NovaMethod((NovaOpenStack)getProvider());
-
             JSONObject result = null;
             if (getNetworkType().equals(QuantumType.QUANTUM) ) {
-                result = method.getNetworks(getPortResource() + "?device_id="+vm.getProviderVirtualMachineId()+"&fields=id", null, false);
+                result = getMethod().getNetworks(getPortResource() + "?device_id=" + vm.getProviderVirtualMachineId() + "&fields=id", null, false);
             }
             else {
-                result = method.getServers(getNetworkResource() + "/" + vm.getProviderVlanId() + "/ports", null, false);
+                result = getMethod().getServers(getNetworkResource() + "/" + vm.getProviderVlanId() + "/ports", null, false);
             }
             if( result != null && result.has("ports") ) {
                 List<String> portIds = new ArrayList<String>();
@@ -259,18 +253,17 @@ public class Quantum extends AbstractVLANSupport<NovaOpenStack> {
             APITrace.end();
         }
     }
-    private @Nonnull Iterable<String> listPortsBySubnetId(@Nonnull String subnetId) throws CloudException, InternalException {
+    protected  @Nonnull Iterable<String> listPortsBySubnetId(@Nonnull String subnetId) throws CloudException, InternalException {
         APITrace.begin(getProvider(), "VLAN.listPorts");
         try {
-            NovaMethod method = new NovaMethod((NovaOpenStack)getProvider());
             Subnet subnet = getSubnet(subnetId);
 
             JSONObject result = null;
             if (getNetworkType().equals(QuantumType.QUANTUM) ) {
-                result = method.getNetworks(getPortResource() + "?network_id=" + subnet.getProviderVlanId() + "&fields=id&fields=fixed_ips", null, false);
+                result = getMethod().getNetworks(getPortResource() + "?network_id=" + subnet.getProviderVlanId() + "&fields=id&fields=fixed_ips", null, false);
             }
             else {
-                result = method.getServers(getNetworkResource() + "/" + subnet.getProviderVlanId() + "/ports", null, false);
+                result = getMethod().getServers(getNetworkResource() + "/" + subnet.getProviderVlanId() + "/ports", null, false);
             }
             if( result != null && result.has("ports") ) {
                 List<String> portIds = new ArrayList<String>();
@@ -306,17 +299,15 @@ public class Quantum extends AbstractVLANSupport<NovaOpenStack> {
         }
     }
 
-    private @Nonnull Iterable<String> listPortsByNetworkId(@Nonnull String vlanId) throws CloudException, InternalException {
+    protected  @Nonnull Iterable<String> listPortsByNetworkId(@Nonnull String vlanId) throws CloudException, InternalException {
         APITrace.begin(getProvider(), "VLAN.listPorts");
         try {
-            NovaMethod method = new NovaMethod((NovaOpenStack)getProvider());
-
             JSONObject result = null;
             if (getNetworkType().equals(QuantumType.QUANTUM) ) {
-                result = method.getNetworks(getPortResource() + "?network_id=" + vlanId + "&fields=id", null, false);
+                result = getMethod().getNetworks(getPortResource() + "?network_id=" + vlanId + "&fields=id", null, false);
             }
             else {
-                result = method.getServers(getNetworkResource() + "/" + vlanId + "/ports", null, false);
+                result = getMethod().getServers(getNetworkResource() + "/" + vlanId + "/ports", null, false);
             }
             if( result != null && result.has("ports") ) {
                 List<String> portIds = new ArrayList<String>();
@@ -357,7 +348,6 @@ public class Quantum extends AbstractVLANSupport<NovaOpenStack> {
             HashMap<String,Object> wrapper = new HashMap<String,Object>();
             HashMap<String,Object> json = new HashMap<String,Object>();
             HashMap<String,Object> md = new HashMap<String, Object>();
-            NovaMethod method = new NovaMethod((NovaOpenStack)getProvider());
 
             json.put("name", options.getName());
             json.put("cidr", options.getCidr());
@@ -384,10 +374,10 @@ public class Quantum extends AbstractVLANSupport<NovaOpenStack> {
             JSONObject result = null;
 
             if (getNetworkType().equals(QuantumType.QUANTUM) ) {
-                result = method.postNetworks(getSubnetResource(), null, new JSONObject(wrapper), false);
+                result = getMethod().postNetworks(getSubnetResource(), null, new JSONObject(wrapper), false);
             }
             else {
-                result = method.postServers(getSubnetResource(), null, new JSONObject(wrapper), false);
+                result = getMethod().postServers(getSubnetResource(), null, new JSONObject(wrapper), false);
             }
             if( result != null && result.has("subnet") ) {
                 try {
@@ -420,7 +410,6 @@ public class Quantum extends AbstractVLANSupport<NovaOpenStack> {
             HashMap<String,Object> wrapper = new HashMap<String,Object>();
             HashMap<String,Object> json = new HashMap<String,Object>();
             HashMap<String,Object> md = new HashMap<String, Object>();
-            NovaMethod method = new NovaMethod((NovaOpenStack)getProvider());
 
             if (!getNetworkType().equals(QuantumType.QUANTUM) ) {
                 md.put("org.dasein.description", description);
@@ -448,10 +437,10 @@ public class Quantum extends AbstractVLANSupport<NovaOpenStack> {
             JSONObject result = null;
 
             if (getNetworkType().equals(QuantumType.QUANTUM) ) {
-                result = method.postNetworks(getNetworkResource(), null, new JSONObject(wrapper), false);
+                result = getMethod().postNetworks(getNetworkResource(), null, new JSONObject(wrapper), false);
             }
             else {
-                result = method.postServers(getNetworkResource(), null, new JSONObject(wrapper), false);
+                result = getMethod().postServers(getNetworkResource(), null, new JSONObject(wrapper), false);
             }
             if( result != null && result.has("network") ) {
                 try {
@@ -487,12 +476,10 @@ public class Quantum extends AbstractVLANSupport<NovaOpenStack> {
         return type.getNetworkResource();
     }
 
-    private @Nonnull String getNetworkResourceVersion() throws CloudException, InternalException {
+    protected  @Nonnull String getNetworkResourceVersion() throws CloudException, InternalException {
         if (networkVersionId == null) {
-            NovaMethod method = new NovaMethod((NovaOpenStack)getProvider());
-
             try {
-                JSONObject ob = method.getNetworks(null, null, false);
+                JSONObject ob = getMethod().getNetworks(null, null, false);
 
                 if( ob != null && ob.has("versions")) {
                     JSONArray versions = ob.getJSONArray("versions");
@@ -556,14 +543,13 @@ public class Quantum extends AbstractVLANSupport<NovaOpenStack> {
             if( !getNetworkType().equals(QuantumType.QUANTUM) ) {
                 return null;
             }
-            NovaMethod method = new NovaMethod((NovaOpenStack)getProvider());
             JSONObject ob = null;
 
             if (getNetworkType().equals(QuantumType.QUANTUM) ) {
-                ob = method.getNetworks(getSubnetResource(), subnetId, false);
+                ob = getMethod().getNetworks(getSubnetResource(), subnetId, false);
             }
             else {
-                ob = method.getServers(getSubnetResource(), subnetId, false);
+                ob = getMethod().getServers(getSubnetResource(), subnetId, false);
             }
             try {
                 if( ob != null && ob.has("subnet") ) {
@@ -593,13 +579,12 @@ public class Quantum extends AbstractVLANSupport<NovaOpenStack> {
             if( vlanId.equals("00000000-0000-0000-0000-000000000000") || vlanId.equals("11111111-1111-1111-1111-111111111111") ) {
                 return super.getVlan(vlanId);
             }
-            NovaMethod method = new NovaMethod((NovaOpenStack)getProvider());
             JSONObject ob = null;
             if (getNetworkType().equals(QuantumType.QUANTUM) ) {
-                ob = method.getNetworks(getNetworkResource(), vlanId, false);
+                ob = getMethod().getNetworks(getNetworkResource(), vlanId, false);
             }
             else {
-                ob = method.getServers(getNetworkResource(), vlanId, false);
+                ob = getMethod().getServers(getNetworkResource(), vlanId, false);
             }
             try {
                 if( ob != null && ob.has("network") ) {
@@ -638,13 +623,12 @@ public class Quantum extends AbstractVLANSupport<NovaOpenStack> {
     public boolean isSubscribed() throws CloudException, InternalException {
         APITrace.begin(getProvider(), "VLAN.isSubscribed");
         try {
-            NovaMethod method = new NovaMethod((NovaOpenStack)getProvider());
             JSONObject ob = null;
             if (getNetworkType().equals(QuantumType.QUANTUM) ) {
-                ob = method.getNetworks(getNetworkResource(), null, false);
+                ob = getMethod().getNetworks(getNetworkResource(), null, false);
             }
             else {
-                ob = method.getServers(getNetworkResource(), null, false);
+                ob = getMethod().getServers(getNetworkResource(), null, false);
             }
             return (ob != null && ob.has("networks"));
         }
@@ -659,15 +643,18 @@ public class Quantum extends AbstractVLANSupport<NovaOpenStack> {
         return Collections.emptyList();
     }
 
+    protected @Nonnull ComputeServices getServices() throws CloudException, InternalException {
+        return getProvider().getComputeServices();
+    }
+
     @Override
     public @Nonnull Iterable<Networkable> listResources(@Nonnull String inVlanId) throws CloudException, InternalException {
         APITrace.begin(getProvider(), "VLAN.listResources");
         try {
             ArrayList<Networkable> list = new ArrayList<Networkable>();
-            ComputeServices services = getProvider().getComputeServices();
 
-            if( services != null ) {
-                VirtualMachineSupport vmSupport = services.getVirtualMachineSupport();
+            if( getServices() != null ) {
+                VirtualMachineSupport vmSupport = getServices().getVirtualMachineSupport();
 
                 if( vmSupport != null ) {
                     for( VirtualMachine vm : vmSupport.listVirtualMachines() ) {
@@ -691,14 +678,13 @@ public class Quantum extends AbstractVLANSupport<NovaOpenStack> {
             if( !getNetworkType().equals(QuantumType.QUANTUM) ) {
                 return Collections.emptyList();
             }
-            NovaMethod method = new NovaMethod((NovaOpenStack)getProvider());
             JSONObject ob = null;
 
             if (getNetworkType().equals(QuantumType.QUANTUM) ) {
-                ob = method.getNetworks(getSubnetResource(), null, false);
+                ob = getMethod().getNetworks(getSubnetResource(), null, false);
             }
             else {
-                ob = method.getServers(getSubnetResource(), null, false);
+                ob = getMethod().getServers(getSubnetResource(), null, false);
             }
             ArrayList<Subnet> subnets = new ArrayList<Subnet>();
 
@@ -731,13 +717,12 @@ public class Quantum extends AbstractVLANSupport<NovaOpenStack> {
     public @Nonnull Iterable<ResourceStatus> listVlanStatus() throws CloudException, InternalException {
         APITrace.begin(getProvider(), "VLAN.listVlanStatus");
         try {
-            NovaMethod method = new NovaMethod((NovaOpenStack)getProvider());
             JSONObject ob = null;
             if (getNetworkType().equals(QuantumType.QUANTUM) ) {
-                ob = method.getNetworks(getNetworkResource(), null, false);
+                ob = getMethod().getNetworks(getNetworkResource(), null, false);
             }
             else {
-                ob = method.getServers(getNetworkResource(), null, false);
+                ob = getMethod().getServers(getNetworkResource(), null, false);
             }
             ArrayList<ResourceStatus> networks = new ArrayList<ResourceStatus>();
 
@@ -827,8 +812,7 @@ public class Quantum extends AbstractVLANSupport<NovaOpenStack> {
             if( !getNetworkType().equals(QuantumType.QUANTUM) ) {
                 throw new OperationNotSupportedException("Cannot remove port in an OpenStack network of type: " + getNetworkType());
             }
-            NovaMethod method = new NovaMethod((NovaOpenStack)getProvider());
-            method.deleteNetworks(getPortResource(), portId+".json");
+            getMethod().deleteNetworks(getPortResource(), portId + ".json");
         }
         catch( CloudException e ) {
             if( e.getHttpCode() == HttpStatus.SC_NOT_FOUND ) {
@@ -850,17 +834,16 @@ public class Quantum extends AbstractVLANSupport<NovaOpenStack> {
             if( !getNetworkType().equals(QuantumType.QUANTUM) ) {
                 throw new OperationNotSupportedException("Cannot remove subnets in an OpenStack network of type: " + getNetworkType());
             }
-            NovaMethod method = new NovaMethod((NovaOpenStack)getProvider());
 
             if (getNetworkType().equals(QuantumType.QUANTUM) ) {
                 Iterable<String> portIds = listPortsBySubnetId(subnetId);
                 for (String portId : portIds) {
                     removePort(portId);
                 }
-                method.deleteNetworks(getSubnetResource(), subnetId);
+                getMethod().deleteNetworks(getSubnetResource(), subnetId);
             }
             else {
-                method.deleteServers(getSubnetResource(), subnetId);
+                getMethod().deleteServers(getSubnetResource(), subnetId);
             }
         }
         finally {
@@ -872,18 +855,16 @@ public class Quantum extends AbstractVLANSupport<NovaOpenStack> {
     public void removeVlan(String vlanId) throws CloudException, InternalException {
         APITrace.begin(getProvider(), "VLAN.removeVlan");
         try {
-            NovaMethod method = new NovaMethod((NovaOpenStack)getProvider());
-
             if (getNetworkType().equals(QuantumType.QUANTUM) ) {
                 Iterable<String> portIds = listPortsByNetworkId(vlanId);
                 for (String portId : portIds) {
                     removePort(portId);
                 }
 
-                method.deleteNetworks(getNetworkResource(), vlanId);
+                getMethod().deleteNetworks(getNetworkResource(), vlanId);
             }
             else {
-                method.deleteServers(getNetworkResource(), vlanId);
+                getMethod().deleteServers(getNetworkResource(), vlanId);
             }
         }
         finally {
@@ -896,7 +877,7 @@ public class Quantum extends AbstractVLANSupport<NovaOpenStack> {
         //To change body of implemented methods use File | Settings | File Templates.
     }
 
-    private @Nonnull VLANState toState(@Nonnull String s) {
+    protected @Nonnull VLANState toState(@Nonnull String s) {
         if( s.equalsIgnoreCase("active") ) {
             return VLANState.AVAILABLE;
         }
@@ -906,7 +887,7 @@ public class Quantum extends AbstractVLANSupport<NovaOpenStack> {
         return VLANState.PENDING;
     }
 
-    private @Nullable ResourceStatus toStatus(@Nonnull JSONObject network) throws CloudException, InternalException {
+    protected @Nullable ResourceStatus toStatus(@Nonnull JSONObject network) throws CloudException, InternalException {
         try {
             String id = (network.has("id") ? network.getString("id") : null);
 
@@ -922,7 +903,7 @@ public class Quantum extends AbstractVLANSupport<NovaOpenStack> {
         }
     }
 
-    private @Nullable Subnet toSubnet(@Nonnull JSONObject json, @Nullable VLAN vlan) throws CloudException, InternalException {
+    protected @Nullable Subnet toSubnet(@Nonnull JSONObject json, @Nullable VLAN vlan) throws CloudException, InternalException {
         try {
             if( vlan == null ) {
                 String vlanId = (json.has("network_id") ? json.getString("network_id") : null);
@@ -948,7 +929,7 @@ public class Quantum extends AbstractVLANSupport<NovaOpenStack> {
             String name = (json.has("name") ? json.getString("name") : null);
             String description = (json.has("description") ? json.getString("description") : null);
 
-            HashMap<String,String> metadata = new HashMap<String, String>();
+            Map<String,String> metadata = new HashMap<String, String>();
 
             if( json.has("metadata") ) {
                 JSONObject md = json.getJSONObject("metadata");
@@ -1056,7 +1037,7 @@ public class Quantum extends AbstractVLANSupport<NovaOpenStack> {
     protected String getCurrentRegionId() throws InternalException {
         return getContext().getRegionId();
     }
-    private @Nullable VLAN toVLAN(@Nonnull JSONObject network) throws CloudException, InternalException {
+    protected @Nullable VLAN toVLAN(@Nonnull JSONObject network) throws CloudException, InternalException {
         try {
             VLAN v = new VLAN();
 
@@ -1100,46 +1081,31 @@ public class Quantum extends AbstractVLANSupport<NovaOpenStack> {
                                 v.setDomainName(value);
                             }
                             else if( n.startsWith("org.dasein.dns.") && !n.equals("org.dasein.dsn.") && v.getDnsServers().length < 1 ) {
-                                ArrayList<String> dns = new ArrayList<String>();
+                                List<String> dns = new ArrayList<String>();
 
                                 try {
                                     int idx = Integer.parseInt(n.substring("org.dasein.dns.".length() + 1));
-
-                                    dns.ensureCapacity(idx);
-                                    dns.set(idx-1, value);
+                                    if( value != null ) {
+                                        dns.add(idx - 1, value);
+                                    }
                                 }
                                 catch( NumberFormatException ignore ) {
                                     // ignore
                                 }
-                                ArrayList<String> real = new ArrayList<String>();
-
-                                for( String item : dns ) {
-                                    if( item != null ) {
-                                        real.add(item);
-                                    }
-                                }
-                                v.setDnsServers(real.toArray(new String[real.size()]));
+                                v.setDnsServers(dns.toArray(new String[dns.size()]));
                             }
                             else if( n.startsWith("org.dasein.ntp.") && !n.equals("org.dasein.ntp.") && v.getNtpServers().length < 1 ) {
-                                ArrayList<String> ntp = new ArrayList<String>();
+                                List<String> ntp = new ArrayList<String>();
 
                                 try {
-                                    int idx = Integer.parseInt(n.substring("org.dasein.ntp.".length() + 1));
-
-                                    ntp.ensureCapacity(idx);
-                                    ntp.set(idx-1, value);
-                                }
-                                catch( NumberFormatException ignore ) {
-                                    // ignore
-                                }
-                                ArrayList<String> real = new ArrayList<String>();
-
-                                for( String item : ntp ) {
-                                    if( item != null ) {
-                                        real.add(item);
+                                    int idx = Integer.parseInt(n.substring("org.dasein.ntp.".length()));
+                                    if( value != null ) {
+                                        ntp.add(idx - 1, value);
                                     }
                                 }
-                                v.setNtpServers(real.toArray(new String[real.size()]));
+                                catch( NumberFormatException ignore ) {
+                                }
+                                v.setNtpServers(ntp.toArray(new String[ntp.size()]));
                             }
                         }
                     }

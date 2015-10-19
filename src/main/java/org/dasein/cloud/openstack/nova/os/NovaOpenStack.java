@@ -349,7 +349,7 @@ public class NovaOpenStack extends AbstractCloud {
         return (getMajorVersion() > 1 || getMinorVersion() > 0);
     }
     
-    public long parseTimestamp(String time) throws CloudException {
+    static public long parseTimestamp(String time) throws CloudException {
         if( time == null ) {
             return 0L;
         }
