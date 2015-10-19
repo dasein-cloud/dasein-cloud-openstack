@@ -35,10 +35,7 @@ import org.dasein.cloud.util.NamingConstraints;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.Locale;
+import java.util.*;
 
 /**
  * Describes the capabilities of Openstack with respect to Dasein virtual machine operations.
@@ -65,66 +62,42 @@ public class NovaServerCapabilities extends AbstractCapabilities<NovaOpenStack> 
 
     @Override
     public boolean canPause(@Nonnull VmState fromState) throws CloudException, InternalException {
-        boolean canPause = ((NovaOpenStack)getProvider()).getCloudProvider().supportsPauseUnpause(null);
-        if (canPause) {
-            return !fromState.equals(VmState.PAUSED) && !fromState.equals(VmState.ERROR) && !fromState.equals(VmState.SUSPENDED);
-        }
-        return canPause;
+        return supportsPause() &&  !fromState.equals(VmState.PAUSED) && !fromState.equals(VmState.ERROR) && !fromState.equals(VmState.SUSPENDED);
     }
 
     @Override
     public boolean canReboot(@Nonnull VmState fromState) throws CloudException, InternalException {
-        return !fromState.equals(VmState.ERROR) && !fromState.equals(VmState.PAUSED) && !fromState.equals(VmState.SUSPENDED);
+        return supportsReboot() && !fromState.equals(VmState.ERROR) && !fromState.equals(VmState.PAUSED) && !fromState.equals(VmState.SUSPENDED);
     }
 
     @Override
     public boolean canResume(@Nonnull VmState fromState) throws CloudException, InternalException {
-        boolean canResume = ((NovaOpenStack)getProvider()).getCloudProvider().supportsSuspendResume(null);
-        if (canResume) {
-            return fromState.equals(VmState.SUSPENDED);
-        }
-        return canResume;
+        return supportsResume() && fromState.equals(VmState.SUSPENDED);
     }
 
     @Override
     public boolean canStart(@Nonnull VmState fromState) throws CloudException, InternalException {
-        boolean canStart = ((NovaOpenStack)getProvider()).getCloudProvider().supportsStartStop(null);
-        if (canStart) {
-            return !fromState.equals(VmState.RUNNING) && !fromState.equals(VmState.ERROR) && !fromState.equals(VmState.SUSPENDED) && !fromState.equals(VmState.PAUSED);
-        }
-        return canStart;
+        return supportsStart() && !fromState.equals(VmState.RUNNING) && !fromState.equals(VmState.ERROR) && !fromState.equals(VmState.SUSPENDED) && !fromState.equals(VmState.PAUSED);
     }
 
     @Override
     public boolean canStop(@Nonnull VmState fromState) throws CloudException, InternalException {
-        boolean canStop = ((NovaOpenStack)getProvider()).getCloudProvider().supportsStartStop(null);
-        if (canStop) {
-            return !fromState.equals(VmState.STOPPED) && !fromState.equals(VmState.ERROR) && !fromState.equals(VmState.SUSPENDED) && !fromState.equals(VmState.PAUSED);
-        }
-        return canStop;
+        return supportsStop() && !fromState.equals(VmState.STOPPED) && !fromState.equals(VmState.ERROR) && !fromState.equals(VmState.SUSPENDED) && !fromState.equals(VmState.PAUSED);
     }
 
     @Override
     public boolean canSuspend(@Nonnull VmState fromState) throws CloudException, InternalException {
-        boolean canSuspend = ((NovaOpenStack)getProvider()).getCloudProvider().supportsSuspendResume(null);
-        if (canSuspend) {
-            return !fromState.equals(VmState.SUSPENDED) && !fromState.equals(VmState.ERROR) && !fromState.equals(VmState.PAUSED);
-        }
-        return canSuspend;
+        return supportsSuspend() && !fromState.equals(VmState.SUSPENDED) && !fromState.equals(VmState.ERROR) && !fromState.equals(VmState.PAUSED);
     }
 
     @Override
     public boolean canTerminate(@Nonnull VmState fromState) throws CloudException, InternalException {
-        return !fromState.equals(VmState.TERMINATED);
+        return supportsTerminate() && !fromState.equals(VmState.TERMINATED);
     }
 
     @Override
     public boolean canUnpause(@Nonnull VmState fromState) throws CloudException, InternalException {
-        boolean canUnpause = getProvider().getCloudProvider().supportsPauseUnpause(null);
-        if (canUnpause) {
-            return fromState.equals(VmState.PAUSED);
-        }
-        return canUnpause;
+        return supportsUnPause() && fromState.equals(VmState.PAUSED);
     }
 
     @Override
@@ -165,6 +138,12 @@ public class NovaServerCapabilities extends AbstractCapabilities<NovaOpenStack> 
     @Override
     public VisibleScope getVirtualMachineProductVisibleScope() {
         return VisibleScope.ACCOUNT_DATACENTER;
+    }
+
+    @Nonnull
+    @Override
+    public String[] getVirtualMachineReservedUserNames() {
+        return new String[0];
     }
 
     @Nonnull
@@ -259,16 +238,17 @@ public class NovaServerCapabilities extends AbstractCapabilities<NovaOpenStack> 
         return false;    //todo is supported in openstack but not in dasein yet
     }
 
-    private transient Collection<Architecture> architectures;
-    @Nonnull
     @Override
-    public Iterable<Architecture> listSupportedArchitectures() throws InternalException, CloudException {
-        if( architectures == null ) {
-            ArrayList<Architecture> a = new ArrayList<Architecture>();
+    public boolean isRootPasswordSSHKeyEncrypted() throws CloudException, InternalException {
+        return false;
+    }
 
-            a.add(Architecture.I32);
-            a.add(Architecture.I64);
-            architectures = Collections.unmodifiableList(a);
+    private transient Collection<Architecture> architectures;
+
+    @Override
+    public @Nonnull Iterable<Architecture> listSupportedArchitectures() throws InternalException, CloudException {
+        if( architectures == null ) {
+            architectures = Collections.unmodifiableList(Arrays.asList(Architecture.I32, Architecture.I64));
         }
         return architectures;
     }
@@ -305,7 +285,7 @@ public class NovaServerCapabilities extends AbstractCapabilities<NovaOpenStack> 
 
     @Override
     public boolean supportsPause() {
-        return ((NovaOpenStack)getProvider()).getCloudProvider().supportsPauseUnpause(null);
+        return getProvider().getCloudProvider().supportsPauseUnpause();
     }
 
     @Override
@@ -315,22 +295,22 @@ public class NovaServerCapabilities extends AbstractCapabilities<NovaOpenStack> 
 
     @Override
     public boolean supportsResume() {
-        return ((NovaOpenStack)getProvider()).getCloudProvider().supportsSuspendResume(null);
+        return getProvider().getCloudProvider().supportsSuspendResume();
     }
 
     @Override
     public boolean supportsStart() {
-        return ((NovaOpenStack)getProvider()).getCloudProvider().supportsStartStop(null);
+        return getProvider().getCloudProvider().supportsStartStop();
     }
 
     @Override
     public boolean supportsStop() {
-        return ((NovaOpenStack)getProvider()).getCloudProvider().supportsStartStop(null);
+        return getProvider().getCloudProvider().supportsStartStop();
     }
 
     @Override
     public boolean supportsSuspend() {
-        return ((NovaOpenStack)getProvider()).getCloudProvider().supportsSuspendResume(null);
+        return getProvider().getCloudProvider().supportsSuspendResume();
     }
 
     @Override
@@ -340,6 +320,6 @@ public class NovaServerCapabilities extends AbstractCapabilities<NovaOpenStack> 
 
     @Override
     public boolean supportsUnPause() {
-        return ((NovaOpenStack)getProvider()).getCloudProvider().supportsPauseUnpause(null);
+        return getProvider().getCloudProvider().supportsPauseUnpause();
     }
 }
