@@ -33,7 +33,6 @@ import org.dasein.util.uom.storage.Gigabyte;
 import org.dasein.util.uom.storage.Storage;
 
 import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Locale;
@@ -65,16 +64,6 @@ public class CinderVolumeCapabilities extends AbstractCapabilities<NovaOpenStack
     }
 
     @Override
-    public int getMaximumVolumeProductIOPS() throws InternalException, CloudException {
-        return LIMIT_UNKNOWN;
-    }
-
-    @Override
-    public int getMinimumVolumeProductIOPS() throws InternalException, CloudException {
-        return LIMIT_UNKNOWN;
-    }
-
-    @Override
     public int getMaximumVolumeSizeIOPS() throws InternalException, CloudException {
         return LIMIT_UNKNOWN;
     }
@@ -84,7 +73,7 @@ public class CinderVolumeCapabilities extends AbstractCapabilities<NovaOpenStack
         return LIMIT_UNKNOWN;
     }
 
-    @Nullable
+    @Nonnull
     @Override
     public Storage<Gigabyte> getMaximumVolumeSize() throws InternalException, CloudException {
         return new Storage<Gigabyte>(1024, Storage.GIGABYTE);
@@ -102,7 +91,7 @@ public class CinderVolumeCapabilities extends AbstractCapabilities<NovaOpenStack
     @Nonnull
     @Override
     public NamingConstraints getVolumeNamingConstraints() throws CloudException, InternalException {
-        return null;
+        return NamingConstraints.getHostNameInstance(false);
     }
 
     @Nonnull
@@ -120,6 +109,13 @@ public class CinderVolumeCapabilities extends AbstractCapabilities<NovaOpenStack
     @Override
     public @Nonnull Requirement getDeviceIdOnAttachRequirement() throws InternalException, CloudException {
         return Requirement.NONE; // TODO: FIND OUT!
+    }
+
+    @Override
+    public boolean supportsIOPSVolumes() throws InternalException, CloudException {
+        // TODO(stas): There doesn't seem to be a static answer to this, it depends on the particular deployment, so it
+        // will have to be queried.
+        return false;
     }
 
     @Override
@@ -168,5 +164,15 @@ public class CinderVolumeCapabilities extends AbstractCapabilities<NovaOpenStack
     @Override
     public Requirement requiresVMOnCreate() throws InternalException, CloudException {
         return Requirement.NONE;
+    }
+
+    @Override
+    public boolean supportsAttach() {
+        return false;
+    }
+
+    @Override
+    public boolean supportsDetach() {
+        return false;
     }
 }

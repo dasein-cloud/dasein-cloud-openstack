@@ -165,7 +165,7 @@ public class NovaOpenStack extends AbstractCloud {
     }
 
     @Override
-    public @Nonnull NovaIdentityServices getIdentityServices() {
+    public @Nullable NovaIdentityServices getIdentityServices() {
         return new NovaIdentityServices(this);
     }
 
@@ -303,7 +303,7 @@ public class NovaOpenStack extends AbstractCloud {
     }
 
     @Override
-    public @Nonnull NovaNetworkServices getNetworkServices() {
+    public @Nullable NovaNetworkServices getNetworkServices() {
         return new NovaNetworkServices(this);
     }
 
