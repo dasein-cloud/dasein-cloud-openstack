@@ -56,14 +56,14 @@ public enum OpenStackProvider {
         return OTHER;
     }
 
-    public boolean supportsPauseUnpause(@Nonnull VirtualMachine vm) {
+    public boolean supportsPauseUnpause() {
         switch( this ) {
             case HP: case RACKSPACE: case METACLOUD: return false;
             default: return true;
         }
     }
 
-    public boolean supportsStartStop(@Nonnull VirtualMachine vm) {
+    public boolean supportsStartStop() {
         switch( this ) {
             //case HP: case RACKSPACE: return false;
             case RACKSPACE: return false;
@@ -71,7 +71,7 @@ public enum OpenStackProvider {
         }
     }
 
-    public boolean supportsSuspendResume(@Nonnull VirtualMachine vm) {
+    public boolean supportsSuspendResume() {
         switch( this ) {
             case HP: case RACKSPACE: return false;
             default: return true;

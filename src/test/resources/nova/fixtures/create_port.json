@@ -1,0 +1,9 @@
+{
+    "port": {
+        "network_id": "testVlanId",
+        "fixed_ips": [
+            {"subnet_id": "testSubnetId"}
+        ],
+        "name": "Port for testVmName"
+    }
+}

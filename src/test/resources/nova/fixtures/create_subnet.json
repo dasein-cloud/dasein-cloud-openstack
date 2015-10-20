@@ -1,0 +1,16 @@
+{
+    "subnet": {
+        "network_id": "testVlanId",
+        "cidr": "testSubnetCidr",
+        "name": "testVmName",
+        "ip_version": "4",
+        "allocation_pools": [
+                    {
+                        "start": "192.168.199.2",
+                        "end": "192.168.199.254"
+                    }
+                ],
+        "id": "testSubnetId",
+        "gateway_ip": "192.168.199.1"
+    }
+}

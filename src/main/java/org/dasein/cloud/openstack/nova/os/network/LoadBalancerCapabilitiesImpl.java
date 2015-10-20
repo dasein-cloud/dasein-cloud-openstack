@@ -30,6 +30,26 @@ public class LoadBalancerCapabilitiesImpl extends AbstractCapabilities<NovaOpenS
     }
 
     @Override
+    public int getMaxHealthCheckTimeout() throws CloudException, InternalException {
+        return LIMIT_UNKNOWN;
+    }
+
+    @Override
+    public int getMinHealthCheckTimeout() throws CloudException, InternalException {
+        return 1;
+    }
+
+    @Override
+    public int getMaxHealthCheckInterval() throws CloudException, InternalException {
+        return LIMIT_UNKNOWN;
+    }
+
+    @Override
+    public int getMinHealthCheckInterval() throws CloudException, InternalException {
+        return 2;
+    }
+
+    @Override
     public @Nonnull String getProviderTermForLoadBalancer(@Nonnull Locale locale) {
         return "pool";
     }
@@ -41,14 +61,25 @@ public class LoadBalancerCapabilitiesImpl extends AbstractCapabilities<NovaOpenS
 
     @Override
     public boolean healthCheckRequiresLoadBalancer() throws CloudException, InternalException {
-        // Openstack health monitors don't required loadbalancers, but at the same time they don't hold any port
+        // Openstack health monitors don't require loadbalancers, but at the same time they don't hold any port
         // information on themselves, so we need a configured listener to have a port, and for that we need
         // a loadbalancer. So this is why we say 'true' here.
         return true;
     }
 
     @Override
+    public boolean healthCheckRequiresListener() throws CloudException, InternalException {
+        return true;
+    }
+
+    @Override
     public @Nonnull Requirement healthCheckRequiresName() throws CloudException, InternalException {
+        return Requirement.NONE;
+    }
+
+    @Nonnull
+    @Override
+    public Requirement healthCheckRequiresPort() throws CloudException, InternalException {
         return Requirement.NONE;
     }
 
