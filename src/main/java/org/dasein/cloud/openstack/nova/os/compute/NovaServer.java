@@ -691,6 +691,11 @@ public class NovaServer extends AbstractVMSupport<NovaOpenStack> {
     }
 
     @Override
+    public @Nonnull Iterable<VirtualMachineProduct> listAllProducts() throws CloudException, InternalException{
+        return listProducts(null, VirtualMachineProductFilterOptions.getInstance());
+    }
+
+    @Override
     public @Nonnull Iterable<VirtualMachineProduct> listProducts(@Nonnull String machineImageId, @Nullable VirtualMachineProductFilterOptions options) throws InternalException, CloudException {
 
         APITrace.begin(getProvider(), "VM.listProducts");
