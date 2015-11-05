@@ -62,7 +62,7 @@ public class NovaServerCapabilities extends AbstractCapabilities<NovaOpenStack> 
 
     @Override
     public boolean canPause(@Nonnull VmState fromState) throws CloudException, InternalException {
-        return supportsPause() &&  !fromState.equals(VmState.PAUSED) && !fromState.equals(VmState.ERROR) && !fromState.equals(VmState.SUSPENDED);
+        return getProvider().getCloudProvider().supportsPauseUnpause() && VmState.RUNNING.equals(fromState);
     }
 
     @Override
@@ -87,7 +87,7 @@ public class NovaServerCapabilities extends AbstractCapabilities<NovaOpenStack> 
 
     @Override
     public boolean canSuspend(@Nonnull VmState fromState) throws CloudException, InternalException {
-        return supportsSuspend() && !fromState.equals(VmState.SUSPENDED) && !fromState.equals(VmState.ERROR) && !fromState.equals(VmState.PAUSED);
+        return getProvider().getCloudProvider().supportsPauseUnpause() && VmState.RUNNING.equals(fromState);
     }
 
     @Override
