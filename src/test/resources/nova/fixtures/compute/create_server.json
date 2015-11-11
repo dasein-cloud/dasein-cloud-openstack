@@ -1,0 +1,1 @@
+{"server":{"imageRef":"machineImageRef","name":"machineName","metadata":{"org.dasein.platform":"UBUNTU","org.dasein.description":"machineDescription"},"flavorRef":"flavorRef"}}
