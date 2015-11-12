@@ -39,7 +39,9 @@ import org.dasein.cloud.openstack.nova.os.NovaException;
 import org.dasein.cloud.openstack.nova.os.NovaMethod;
 import org.dasein.cloud.openstack.nova.os.NovaOpenStack;
 import org.dasein.cloud.openstack.nova.os.OpenStackProvider;
+import org.dasein.cloud.openstack.nova.os.network.NovaFloatingIP;
 import org.dasein.cloud.openstack.nova.os.network.NovaNetworkServices;
+import org.dasein.cloud.openstack.nova.os.network.NovaSecurityGroup;
 import org.dasein.cloud.openstack.nova.os.network.Quantum;
 import org.dasein.cloud.util.APITrace;
 import org.dasein.cloud.util.Cache;
@@ -53,17 +55,11 @@ import org.dasein.util.uom.time.TimePeriod;
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
-import org.omg.PortableInterceptor.ACTIVE;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.io.UnsupportedEncodingException;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 /**
  * Implements services supporting interaction with cloud virtual machines.
@@ -78,6 +74,7 @@ public class NovaServer extends AbstractVMSupport<NovaOpenStack> {
     static private final Logger logger = NovaOpenStack.getLogger(NovaServer.class, "std");
 
     static public final String SERVICE = "compute";
+    public static final String ORG_DASEIN_PORT_ID = "org.dasein.portId";
 
     NovaServer(NovaOpenStack provider) {
         super(provider);
@@ -88,8 +85,8 @@ public class NovaServer extends AbstractVMSupport<NovaOpenStack> {
     }
 
     private transient volatile NovaServerCapabilities capabilities;
-    @Nonnull
-    @Override
+
+    @Nonnull @Override
     public VirtualMachineCapabilities getCapabilities() throws InternalException, CloudException {
         if( capabilities == null ) {
             capabilities = new NovaServerCapabilities(getProvider());
@@ -99,6 +96,33 @@ public class NovaServer extends AbstractVMSupport<NovaOpenStack> {
 
     protected NovaMethod getMethod() {
         return new NovaMethod(getProvider());
+    }
+
+    protected Quantum getQuantum() {
+        if( getNetworkServices() == null ) {
+            return null;
+        }
+        else {
+            return getNetworkServices().getVlanSupport();
+        }
+    }
+
+    protected NovaFloatingIP getNovaFloatingIp() {
+        if( getNetworkServices() == null ) {
+            return null;
+        }
+        else {
+            return getNetworkServices().getIpAddressSupport();
+        }
+    }
+
+    protected NovaSecurityGroup getNovaSecurityGroup() {
+        if( getNetworkServices() == null ) {
+            return null;
+        }
+        else {
+            return getNetworkServices().getFirewallSupport();
+        }
     }
 
     protected int getMinorVersion() throws CloudException, InternalException {
@@ -117,7 +141,7 @@ public class NovaServer extends AbstractVMSupport<NovaOpenStack> {
         Platform p = Platform.guess(vmName + " " + vmDescription);
 
         if( p.equals(Platform.UNKNOWN) ) {
-            if (imageId != null) {
+            if( imageId != null ) {
                 MachineImage img = getProvider().getComputeServices().getImageSupport().getImage(imageId);
                 if( img != null ) {
                     p = img.getPlatform();
@@ -137,13 +161,13 @@ public class NovaServer extends AbstractVMSupport<NovaOpenStack> {
             if( vm == null ) {
                 throw new CloudException("No such virtual machine: " + vmId);
             }
-            Map<String,Object> json = new HashMap<String,Object>();
+            Map<String, Object> json = new HashMap<String, Object>();
 
-            json.put("os-getConsoleOutput", new HashMap<String,Object>());
+            json.put("os-getConsoleOutput", new HashMap<String, Object>());
 
             String console = getMethod().postServersForString("/servers", vmId, new JSONObject(json), true);
 
-            return (console == null ? "" : console);
+            return ( console == null ? "" : console );
         }
         finally {
             APITrace.end();
@@ -166,7 +190,7 @@ public class NovaServer extends AbstractVMSupport<NovaOpenStack> {
         }
     }
 
-    protected NetworkServices getNetworkServices() {
+    protected NovaNetworkServices getNetworkServices() {
         return getProvider().getNetworkServices();
     }
 
@@ -232,7 +256,7 @@ public class NovaServer extends AbstractVMSupport<NovaOpenStack> {
         }
     }
 
-    protected  @Nonnull String getServerStatus(@Nonnull String virtualMachineId) throws InternalException, CloudException {
+    protected @Nonnull String getServerStatus(@Nonnull String virtualMachineId) throws InternalException, CloudException {
         APITrace.begin(getProvider(), "VM.getVmStatus");
         try {
             final JSONObject ob = getMethod().getServers("/servers", virtualMachineId, true);
@@ -250,8 +274,8 @@ public class NovaServer extends AbstractVMSupport<NovaOpenStack> {
     public @Nonnull VirtualMachine alterVirtualMachineProduct(@Nonnull String virtualMachineId, @Nonnull String productId) throws InternalException, CloudException {
         APITrace.begin(getProvider(), "VM.resize");
         try {
-            Map<String,Object> json = new HashMap<String,Object>();
-            Map<String,Object> action = new HashMap<String,Object>();
+            Map<String, Object> json = new HashMap<String, Object>();
+            Map<String, Object> action = new HashMap<String, Object>();
 
             action.put("flavorRef", productId);
             json.put("resize", action);
@@ -271,10 +295,9 @@ public class NovaServer extends AbstractVMSupport<NovaOpenStack> {
                 getMethod().postServers("/servers", virtualMachineId, new JSONObject(json), true);
             }
             VirtualMachine vm = getVirtualMachine(virtualMachineId);
-                if( status.equals("ACTIVE") && !(vm.getProductId().equals(productId)) ) {
-                    throw new CloudException("Failed to resize VM from " + getProduct(vm.getProductId()).getName()
-                            + " to " + getProduct(productId).getName());
-                }
+            if( status.equals("ACTIVE") && !( vm.getProductId().equals(productId) ) ) {
+                throw new CloudException("Failed to resize VM from " + getProduct(vm.getProductId()).getName() + " to " + getProduct(productId).getName());
+            }
             return vm;
         }
         finally {
@@ -286,42 +309,89 @@ public class NovaServer extends AbstractVMSupport<NovaOpenStack> {
     public boolean isSubscribed() throws CloudException, InternalException {
         APITrace.begin(getProvider(), "VM.isSubscribed");
         try {
-            return (getProvider().testContext() != null);
+            return ( getProvider().testContext() != null );
         }
         finally {
             APITrace.end();
         }
     }
 
+    protected MachineImage getImage(String providerImageId) throws CloudException, InternalException {
+        return getProvider().getComputeServices().getImageSupport().getImage(providerImageId);
+    }
+
+    protected void prepareFirewallsForLaunch(VMLaunchOptions options, Map<String, Object> json) throws CloudException, InternalException {
+        if( options.getFirewallIds().length == 0 ) {
+            return;
+        }
+        List<Map<String,Object>> firewalls = new ArrayList<>();
+
+        FirewallSupport support = getNovaSecurityGroup();
+        if( support != null ) {
+            for( String id : options.getFirewallIds() ) {
+                Firewall firewall = support.getFirewall(id);
+                if( firewall != null ) {
+                    Map<String,Object> fw = new HashMap<>();
+
+                    fw.put("name", firewall.getName());
+                    firewalls.add(fw);
+                }
+            }
+        }
+    }
+
+    protected void prepareVlanForLaunch(VMLaunchOptions options, Map<String, Object> json) throws CloudException, InternalException {
+        List<Map<String,Object>> vlans = new ArrayList<>();
+        Map<String,Object> vlan = new HashMap<>();
+
+        if( options.getVlanId() != null ) {
+            vlan.put("uuid", options.getVlanId());
+            vlans.add(vlan);
+            json.put("networks", vlans);
+        }
+        else {
+            if( options.getSubnetId() != null && !getProvider().isRackspace() ) {
+                Quantum support = getQuantum();
+
+                if( support != null ) {
+                    try {
+                        String portId = support.createPort(options.getSubnetId(), options.getHostName(), options.getFirewallIds());
+                        vlan.put("port", portId);
+                        vlans.add(vlan);
+                        json.put("networks", vlans);
+                        options.withMetaData(ORG_DASEIN_PORT_ID, portId);
+                    }
+                    catch (CloudException e) {
+                        if (e.getHttpCode() != 403) {
+                            throw new CloudException(e.getMessage());
+                        }
+
+                        logger.warn("Unable to create port - trying to launch into general network");
+                        Subnet subnet = support.getSubnet(options.getSubnetId());
+
+                        vlan.put("uuid", subnet.getProviderVlanId());
+                        vlans.add(vlan);
+                        json.put("networks", vlans);
+                    }
+                }
+            }
+        }
+    }
     @Override
     public @Nonnull VirtualMachine launch(@Nonnull VMLaunchOptions options) throws CloudException, InternalException {
         APITrace.begin(getProvider(), "VM.launch");
         VirtualMachine vm = null;
-        String portId = null;
+
         try {
-            MachineImage targetImage = getProvider().getComputeServices().getImageSupport().getImage(options.getMachineImageId());
-
-            //Additional LPAR Call
-            boolean isBareMetal = false;
-            try{
-                String lparMetadataKey = "hypervisor_type";
-                String lparMetadataValue = "Hitachi";
-                JSONObject ob = getMethod().getServers("/images/" + options.getMachineImageId() + "/metadata", lparMetadataKey, false);
-                if(ob.has("metadata")){
-                    JSONObject metadata = ob.getJSONObject("metadata");
-                    if(metadata.has(lparMetadataKey) && metadata.getString(lparMetadataKey).equals(lparMetadataValue))isBareMetal = true;
-                }
-            }
-            catch(Exception ex){
-                //Something failed while checking Hitachi LPAR metadata
-                logger.error("Failed to find Hitachi LPAR metadata");
-            }
-
+            MachineImage targetImage = getImage(options.getMachineImageId());
             if( targetImage == null ) {
                 throw new CloudException("No such machine image: " + options.getMachineImageId());
             }
-            Map<String,Object> wrapper = new HashMap<String,Object>();
-            Map<String,Object> json = new HashMap<String,Object>();
+            //Additional LPAR Call
+            boolean isBareMetal = isBareMetal(options.getMachineImageId());
+
+            Map<String,Object> wrapper = new HashMap<>();
+            Map<String,Object> json = new HashMap<>();
 
             json.put("name", options.getHostName());
             if( options.getBootstrapPassword() != null ) {
@@ -340,89 +410,27 @@ public class NovaServer extends AbstractVMSupport<NovaOpenStack> {
                 json.put("flavorId", options.getStandardProductId());
             }
             else {
-                if( getProvider().getProviderName().equals("HP") ) {
+                if( getCloudProvider().equals(OpenStackProvider.HP) ) {
                     json.put("imageRef", options.getMachineImageId());
                 }
                 else {
-                    json.put("imageRef", getProvider().getComputeServices().getImageSupport().getImageRef(options.getMachineImageId()));
+                    json.put("imageRef", getImageRef(options));
                 }
                 json.put("flavorRef", getFlavorRef(options.getStandardProductId()));
             }
 
-            if( options.getVlanId() != null ) {
-                List<Map<String,Object>> vlans = new ArrayList<Map<String, Object>>();
-                Map<String,Object> vlan = new HashMap<String, Object>();
+            prepareVlanForLaunch(options, json);
+            prepareFirewallsForLaunch(options, json);
 
-                vlan.put("uuid", options.getVlanId());
-                vlans.add(vlan);
-                json.put("networks", vlans);
-            }
-            else {
-                if( options.getSubnetId() != null && !getProvider().isRackspace() ) {
-                    NovaNetworkServices services = getProvider().getNetworkServices();
-
-                    if( services != null ) {
-                        Quantum support = services.getVlanSupport();
-
-                        if( support != null ) {
-                            List<Map<String,Object>> vlans = new ArrayList<Map<String, Object>>();
-                            Map<String,Object> vlan = new HashMap<String, Object>();
-
-                            try {
-                                portId = support.createPort(options.getSubnetId(), options.getHostName(), options.getFirewallIds());
-                                vlan.put("port", portId);
-                                vlans.add(vlan);
-                                json.put("networks", vlans);
-                                options.withMetaData("org.dasein.portId", portId);
-                            }
-                            catch (CloudException e) {
-                                if (e.getHttpCode() != 403) {
-                                    throw new CloudException(e.getMessage());
-                                }
-
-                                logger.warn("Unable to create port - trying to launch into general network");
-                                Subnet subnet = support.getSubnet(options.getSubnetId());
-
-                                vlan.put("uuid", subnet.getProviderVlanId());
-                                vlans.add(vlan);
-                                json.put("networks", vlans);
-                            }
-                        }
-                    }
-                }
-            }
             if( options.getBootstrapKey() != null ) {
                 json.put("key_name", options.getBootstrapKey());
-            }
-            if( options.getFirewallIds().length > 0 ) {
-                List<Map<String,Object>> firewalls = new ArrayList<Map<String,Object>>();
-
-                for( String id : options.getFirewallIds() ) {
-                    NetworkServices services = getProvider().getNetworkServices();
-                    Firewall firewall = null;
-
-                    if( services != null ) {
-                        FirewallSupport support = services.getFirewallSupport();
-
-                        if( support != null ) {
-                            firewall = support.getFirewall(id);
-                        }
-                    }
-                    if( firewall != null ) {
-                        Map<String,Object> fw = new HashMap<String, Object>();
-
-                        fw.put("name", firewall.getName());
-                        firewalls.add(fw);
-                    }
-                }
-                json.put("security_groups", firewalls);
             }
 
             if( isBareMetal ) {
                 Map<String, String> blockDeviceMapping = new HashMap<String, String>();
                 //blockDeviceMapping.put("device_name", "/dev/sdb1");
                 blockDeviceMapping.put("boot_index", "0");
-                blockDeviceMapping.put("uuid", getProvider().getComputeServices().getImageSupport().getImageRef(options.getMachineImageId()));
+                blockDeviceMapping.put("uuid", getImageRef(options));
                 //blockDeviceMapping.put("guest_format", "ephemeral");
                 String volumeSize = "";
                 if( targetImage.getTag("minDisk") != null ) {
@@ -444,14 +452,14 @@ public class NovaServer extends AbstractVMSupport<NovaOpenStack> {
             }
             options.withMetaData("org.dasein.description", options.getDescription());
             Map<String, Object> tmpMeta = options.getMetaData();
-            Map<String, Object> newMeta = new HashMap<String, Object>();
+            Map<String, Object> newMeta = new HashMap<>();
             for (Map.Entry entry : tmpMeta.entrySet()) {
                 if (entry.getValue() != null) { //null values not supported by openstack
                     newMeta.put(entry.getKey().toString(), entry.getValue());
                 }
             }
             json.put("metadata", newMeta);
-            wrapper.put("server", json);
+            wrapper.put("server", new JSONObject(json));
             JSONObject result = getMethod().postServers(isBareMetal ? "/os-volumes_boot" : "/servers", null, new JSONObject(wrapper), true);
 
             if( result.has("server") ) {
@@ -490,14 +498,42 @@ public class NovaServer extends AbstractVMSupport<NovaOpenStack> {
 
         }
         finally {
-            if( portId != null && (vm == null || VmState.ERROR.equals(vm.getCurrentState())) ) { //if launch fails or instance in error state - remove port
-                Quantum quantum = getProvider().getNetworkServices().getVlanSupport();
-                if( quantum != null ) {
-                    quantum.removePort(portId);
-                }
-            }
+            cleanupFailedLaunch(options, vm);
             APITrace.end();
         }
+    }
+
+    protected void cleanupFailedLaunch(VMLaunchOptions options, VirtualMachine vm) throws CloudException, InternalException {
+        //if launch fails or instance in error state - remove port
+        if( options.getMetaData().containsKey(ORG_DASEIN_PORT_ID) && (vm == null || VmState.ERROR.equals(vm.getCurrentState())) ) {
+            Quantum quantum = getProvider().getNetworkServices().getVlanSupport();
+            if( quantum != null ) {
+                quantum.removePort(( String ) options.getMetaData().get(ORG_DASEIN_PORT_ID));
+            }
+        }
+    }
+
+    protected boolean isBareMetal(String machineImageId) {
+        try{
+            String lparMetadataKey = "hypervisor_type";
+            String lparMetadataValue = "Hitachi";
+            JSONObject ob = getMethod().getServers("/images/" + machineImageId + "/metadata", lparMetadataKey, false);
+            if(ob.has("metadata")){
+                JSONObject metadata = ob.getJSONObject("metadata");
+                if(metadata.has(lparMetadataKey) && metadata.getString(lparMetadataKey).equals(lparMetadataValue)) {
+                    return true;
+                }
+            }
+        }
+        catch(Exception ex){
+            //Something failed while checking Hitachi LPAR metadata
+            logger.trace("Failed to find Hitachi LPAR metadata");
+        }
+        return false;
+    }
+
+    protected String getImageRef(VMLaunchOptions options) throws CloudException, InternalException {
+        return getProvider().getComputeServices().getImageSupport().getImageRef(options.getMachineImageId());
     }
 
     public static int roundUpToGB(Long size) {
@@ -505,18 +541,14 @@ public class NovaServer extends AbstractVMSupport<NovaOpenStack> {
         return round.intValue();
     }
 
-    private @Nonnull Iterable<String> listFirewalls(@Nonnull String vmId, @Nonnull JSONObject server) throws InternalException, CloudException {
+    protected  @Nonnull Iterable<String> listFirewalls(@Nonnull String vmId, @Nonnull JSONObject server) throws InternalException, CloudException {
         try {
             if( server.has("security_groups") ) {
-                NetworkServices services = getProvider().getNetworkServices();
+
+                FirewallSupport support = getNovaSecurityGroup();
                 Iterable<Firewall> firewalls = null;
-
-                if( services != null ) {
-                    FirewallSupport support = services.getFirewallSupport();
-
-                    if( support != null ) {
-                        firewalls = support.list();
-                    }
+                if( support != null ) {
+                    firewalls = support.list();
                 }
                 if( firewalls == null ) {
                     firewalls = Collections.emptyList();
@@ -606,14 +638,24 @@ public class NovaServer extends AbstractVMSupport<NovaOpenStack> {
         public String toString() { return (id + " -> " + product); }
     }
 
+    @Nullable protected Iterable<FlavorRef> listCachedFlavors() throws InternalException {
+        Cache<FlavorRef> cache = Cache.getInstance(getProvider(), "flavorRefs", FlavorRef.class, CacheLevel.REGION_ACCOUNT, new TimePeriod<Day>(1, TimePeriod.DAY));
+        Iterable<FlavorRef> refs = cache.get(getContext());
+        return refs;
+    }
+
+    protected void cacheFlavors(Iterable<FlavorRef> refs) throws InternalException {
+        Cache<FlavorRef> cache = Cache.getInstance(getProvider(), "flavorRefs", FlavorRef.class, CacheLevel.REGION_ACCOUNT, new TimePeriod<Day>(1, TimePeriod.DAY));
+        cache.put(getContext(), refs);
+    }
+
+
     @Nonnull protected Iterable<FlavorRef> listFlavors() throws InternalException, CloudException {
         APITrace.begin(getProvider(), "VM.listFlavors");
         try {
-            Cache<FlavorRef> cache = Cache.getInstance(getProvider(), "flavorRefs", FlavorRef.class, CacheLevel.REGION_ACCOUNT, new TimePeriod<Day>(1, TimePeriod.DAY));
-            Iterable<FlavorRef> refs = cache.get(getContext());
-
-            if( refs != null ) {
-                return refs;
+            Iterable<FlavorRef> cachedRefs = listCachedFlavors();
+            if( cachedRefs != null ) {
+                return cachedRefs;
             }
 
             JSONObject ob = getMethod().getServers("/flavors", null, true);
@@ -663,7 +705,7 @@ public class NovaServer extends AbstractVMSupport<NovaOpenStack> {
                 logger.error("listProducts(): Unable to identify expected values in JSON: " + e.getMessage());
                 throw new CloudException(CloudErrorType.COMMUNICATION, 200, "invalidJson", "Missing JSON element for flavors: " + e.getMessage());
             }
-            cache.put(getContext(), flavors);
+            cacheFlavors(flavors);
             return flavors;
         }
         finally {
@@ -761,22 +803,18 @@ public class NovaServer extends AbstractVMSupport<NovaOpenStack> {
 
             Iterable<IpAddress> ipv4 = Collections.emptyList(), ipv6 = Collections.emptyList();
             Iterable<VLAN> nets = Collections.emptyList();
-            NetworkServices services = getProvider().getNetworkServices();
 
-            if( services != null ) {
-                IpAddressSupport support = services.getIpAddressSupport();
-
-                if( support != null ) {
-                    ipv4 = support.listIpPool(IPVersion.IPV4, false);
-                    ipv6 = support.listIpPool(IPVersion.IPV6, false);
-                }
-
-                VLANSupport vs = services.getVlanSupport();
-
-                if( vs != null ) {
-                    nets = vs.listVlans();
-                }
+            IpAddressSupport support = getNovaFloatingIp();
+            if( support != null ) {
+                ipv4 = support.listIpPool(IPVersion.IPV4, false);
+                ipv6 = support.listIpPool(IPVersion.IPV6, false);
             }
+
+            VLANSupport vs = getQuantum();
+            if( vs != null ) {
+                nets = vs.listVlans();
+            }
+
             try {
                 if( ob != null && ob.has("servers") ) {
                     JSONArray list = ob.getJSONArray("servers");
@@ -927,7 +965,7 @@ public class NovaServer extends AbstractVMSupport<NovaOpenStack> {
             if( vm == null ) {
                 throw new CloudException("No such virtual machine: " + vmId);
             }
-            if( !getCapabilities().supportsPause() ) {
+            if( !getCapabilities().supportsUnPause() ) {
                 throw new OperationNotSupportedException("Pause/unpause is not supported in " + getProvider().getCloudName());
             }
             Map<String,Object> json = new HashMap<String,Object>();
@@ -970,7 +1008,7 @@ public class NovaServer extends AbstractVMSupport<NovaOpenStack> {
 
             do {
                 try {
-                    Quantum quantum = getProvider().getNetworkServices().getVlanSupport();
+                    Quantum quantum = getQuantum();
                     if( quantum != null ) {
                         String cachedPortId = (String) vm.getTag("org.dasein.portId");
                         Iterable<String> portIds = quantum.listPorts(vm);
@@ -1002,7 +1040,7 @@ public class NovaServer extends AbstractVMSupport<NovaOpenStack> {
         }
     }
 
-    private @Nullable VirtualMachineProduct toProduct(@Nullable JSONObject json) throws JSONException, InternalException, CloudException {
+    protected  @Nullable VirtualMachineProduct toProduct(@Nullable JSONObject json) throws JSONException, InternalException, CloudException {
         if( json == null ) {
             return null;
         }
@@ -1024,6 +1062,7 @@ public class NovaServer extends AbstractVMSupport<NovaOpenStack> {
             product.setRootVolumeSize(new Storage<Gigabyte>(json.getInt("disk"), Storage.GIGABYTE));
         }
         product.setCpuCount(1);
+
         if( product.getProviderProductId() == null ) {
             return null;
         }
@@ -1037,7 +1076,7 @@ public class NovaServer extends AbstractVMSupport<NovaOpenStack> {
         return product;
     }
 
-    private @Nullable ResourceStatus toStatus(@Nullable JSONObject server) throws JSONException, InternalException, CloudException {
+    protected  @Nullable ResourceStatus toStatus(@Nullable JSONObject server) throws JSONException, InternalException, CloudException {
         if( server == null ) {
             return null;
         }
