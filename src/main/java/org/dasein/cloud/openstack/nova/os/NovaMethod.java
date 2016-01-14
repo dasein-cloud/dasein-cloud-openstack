@@ -36,11 +36,13 @@ import javax.annotation.Nullable;
 import java.util.HashMap;
 import java.util.Map;
 
+import org.dasein.cloud.openstack.nova.os.*;
+
 public class NovaMethod extends AbstractMethod {
     public NovaMethod(NovaOpenStack provider) { super(provider); }
     
     public void deleteServers(@Nonnull final String resource, @Nonnull final String resourceId) throws CloudException, InternalException {
-        AuthenticationContext context = provider.getAuthenticationContext();
+        AuthenticationContext context = getAuthenticationContext();
         String endpoint = context.getComputeUrl();
         
         if( endpoint == null ) {
@@ -62,7 +64,7 @@ public class NovaMethod extends AbstractMethod {
     }
 
     public void deleteNetworks(@Nonnull final String resource, @Nonnull final String resourceId) throws CloudException, InternalException {
-        AuthenticationContext context = provider.getAuthenticationContext();
+        AuthenticationContext context = getAuthenticationContext();
         String endpoint = context.getNetworkUrl();
 
         if( endpoint == null ) {
@@ -87,7 +89,7 @@ public class NovaMethod extends AbstractMethod {
     }
 
     public @Nullable JSONObject getPorts(@Nonnull final String resource, @Nonnull final String resourceId) throws CloudException, InternalException {
-        AuthenticationContext context = provider.getAuthenticationContext();
+        AuthenticationContext context = getAuthenticationContext();
         String endpoint = context.getComputeUrl();
 
         if( endpoint == null ) {
@@ -122,9 +124,13 @@ public class NovaMethod extends AbstractMethod {
             }
         }
     }
-    
+
+    public AuthenticationContext getAuthenticationContext() throws CloudException, InternalException {
+        return provider.getAuthenticationContext();
+    }
+
     public @Nullable JSONObject getServers(@Nonnull final String resource, @Nullable final String resourceId, final boolean suffix) throws CloudException, InternalException {
-        AuthenticationContext context = provider.getAuthenticationContext();
+        AuthenticationContext context = getAuthenticationContext();
         String endpoint = context.getComputeUrl();
         
         if( endpoint == null ) {
@@ -167,7 +173,7 @@ public class NovaMethod extends AbstractMethod {
     }
 
     public @Nullable JSONObject getNetworks(@Nonnull final String resource, @Nullable final String resourceId, final boolean suffix, final String query) throws CloudException, InternalException {
-        AuthenticationContext context = provider.getAuthenticationContext();
+        AuthenticationContext context = getAuthenticationContext();
         String endpoint = context.getNetworkUrl();
 
         if( endpoint == null ) {
@@ -212,7 +218,7 @@ public class NovaMethod extends AbstractMethod {
     }
 
     public @Nullable String postServersForString(@Nonnull final String resource, @Nullable final String resourceId, @Nonnull final JSONObject body, final boolean suffix) throws CloudException, InternalException {
-        AuthenticationContext context = provider.getAuthenticationContext();
+        AuthenticationContext context = getAuthenticationContext();
 
         String resourceUri = resource;
         if( resourceId != null ) {
@@ -239,7 +245,7 @@ public class NovaMethod extends AbstractMethod {
     }
 
     public @Nullable JSONObject postServers(@Nonnull final String resource, @Nullable final String resourceId, @Nonnull final JSONObject body, final boolean suffix) throws CloudException, InternalException {
-        AuthenticationContext context = provider.getAuthenticationContext();
+        AuthenticationContext context = getAuthenticationContext();
 
         String resourceUri = resource;
         if( resourceId != null ) {
@@ -276,7 +282,7 @@ public class NovaMethod extends AbstractMethod {
     }
 
     public @Nullable JSONObject postNetworks(@Nonnull final String resource, @Nullable final String resourceId, @Nonnull final JSONObject body, @Nullable final String action) throws CloudException, InternalException {
-        AuthenticationContext context = provider.getAuthenticationContext();
+        AuthenticationContext context = getAuthenticationContext();
 
         String resourceUri = resource;
         if( resourceId != null ) {
@@ -317,7 +323,7 @@ public class NovaMethod extends AbstractMethod {
     }
 
     public @Nullable JSONObject putNetworks(@Nonnull final String resource, @Nullable final String resourceId, @Nonnull final JSONObject body, final String action) throws CloudException, InternalException {
-        AuthenticationContext context = provider.getAuthenticationContext();
+        AuthenticationContext context = getAuthenticationContext();
 
         String resourceUri = resource;
         if( resourceId != null ) {
@@ -362,7 +368,7 @@ public class NovaMethod extends AbstractMethod {
     }
 
     public @Nullable String getHPCDN(@Nullable final String resourceId) throws CloudException, InternalException {
-        AuthenticationContext context = provider.getAuthenticationContext();
+        AuthenticationContext context = getAuthenticationContext();
         String endpoint = context.getServiceUrl(HPCDN.SERVICE);
 
         if( endpoint == null ) {
@@ -385,7 +391,7 @@ public class NovaMethod extends AbstractMethod {
     
     public void putHPCDN(final String container) throws CloudException, InternalException {
         Map<String,String> headers = new HashMap<String, String>();
-        AuthenticationContext context = provider.getAuthenticationContext();
+        AuthenticationContext context = getAuthenticationContext();
         String endpoint = context.getServiceUrl(HPCDN.SERVICE);
 
         if( endpoint == null ) {
@@ -416,7 +422,7 @@ public class NovaMethod extends AbstractMethod {
     }
 
     public void postHPCDN(@Nonnull final String container, @Nonnull final Map<String,String> headers) throws CloudException, InternalException {
-        AuthenticationContext context = provider.getAuthenticationContext();
+        AuthenticationContext context = getAuthenticationContext();
         String endpoint = context.getServiceUrl(HPCDN.SERVICE);
 
         if( endpoint == null ) {
@@ -441,7 +447,7 @@ public class NovaMethod extends AbstractMethod {
     }
     
     public void deleteHPCDN(@Nonnull final String container) throws CloudException, InternalException {
-        AuthenticationContext context = provider.getAuthenticationContext();
+        AuthenticationContext context = getAuthenticationContext();
         String endpoint = context.getServiceUrl(HPCDN.SERVICE);
 
         if( endpoint == null ) {

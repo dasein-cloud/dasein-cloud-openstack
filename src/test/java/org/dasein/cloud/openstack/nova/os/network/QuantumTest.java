@@ -7,6 +7,7 @@ import org.dasein.cloud.compute.VirtualMachine;
 import org.dasein.cloud.compute.VirtualMachineSupport;
 import org.dasein.cloud.network.*;
 import org.dasein.cloud.openstack.nova.os.NovaMethod;
+import org.dasein.cloud.openstack.nova.os.OpenStackTest;
 import org.dasein.cloud.test.network.NetworkResources;
 import org.json.JSONArray;
 import org.json.JSONException;
@@ -32,22 +33,7 @@ import static org.mockito.internal.verification.VerificationModeFactory.times;
 /**
  * Created by mariapavlova on 15/09/2015.
  */
-public class QuantumTest {
-
-
-    private JSONObject readJson(String filename) {
-        try {
-            InputStream is = getClass().getClassLoader().getResourceAsStream(filename);
-            String jsonText = IOUtils.toString(is);
-            return new JSONObject(jsonText);
-        }
-        catch( JSONException e ) {
-            throw new RuntimeException(e);
-        }
-        catch( IOException e ) {
-            throw new RuntimeException(e);
-        }
-    }
+public class QuantumTest extends OpenStackTest {
 
     @Test
     public void listVlansTest() {
@@ -96,18 +82,9 @@ public class QuantumTest {
         NovaMethod method = mock(NovaMethod.class);
         Quantum quantum = mock(Quantum.class);
         VirtualMachine mv = mock(VirtualMachine.class);
-        JSONObject json = null;
-        try {
-            InputStream is = getClass().getClassLoader().getResourceAsStream("nova/fixtures/list_ports.json");
-            String jsonText = IOUtils.toString(is);
-            json = new JSONObject(jsonText);
-        }
-        catch( IOException e ) {
-            throw new RuntimeException(e);
-        }
-        catch( JSONException e ) {
-            throw new RuntimeException(e);
-        }
+
+        JSONObject json = readJson("nova/fixtures/list_ports.json");
+
         when(quantum.getMethod()).thenReturn(method);
         when(mv.getProviderVirtualMachineId()).thenReturn("blah");
         try {
@@ -134,18 +111,7 @@ public class QuantumTest {
         NovaMethod method = mock(NovaMethod.class);
         Quantum quantum = mock(Quantum.class);
         VirtualMachine vm = mock(VirtualMachine.class);
-        JSONObject json = null;
-        try {
-            InputStream is = getClass().getClassLoader().getResourceAsStream("nova/fixtures/list_subnets.json");
-            String jsonText = IOUtils.toString(is);
-            json = new JSONObject(jsonText);
-        }
-        catch( JSONException e ) {
-            throw new RuntimeException(e);
-        }
-        catch( IOException e ) {
-            throw new RuntimeException(e);
-        }
+        JSONObject json = readJson("nova/fixtures/list_subnets.json");
         when(quantum.getMethod()).thenReturn(method);
         try {
             when(quantum.getNetworkType()).thenReturn(Quantum.QuantumType.QUANTUM);
@@ -172,10 +138,10 @@ public class QuantumTest {
 
         }
         catch( CloudException e ) {
-            e.printStackTrace();
+            fail("Unexpected exception " + e);
         }
         catch( InternalException e ) {
-            e.printStackTrace();
+            fail("Unexpected exception " + e);
         }
 
     }
@@ -184,18 +150,7 @@ public class QuantumTest {
     public void getVlanTest() {
         NovaMethod method = mock(NovaMethod.class);
         Quantum quantum = mock(Quantum.class);
-        JSONObject json = null;
-        try {
-            InputStream is = getClass().getClassLoader().getResourceAsStream("nova/fixtures/get_vlan.json");
-            String jsonText = IOUtils.toString(is);
-            json = new JSONObject(jsonText);
-        }
-        catch( JSONException e ) {
-            throw new RuntimeException(e);
-        }
-        catch( IOException e ) {
-            throw new RuntimeException(e);
-        }
+        JSONObject json = readJson("nova/fixtures/get_vlan.json");
         try {
             when(quantum.getMethod()).thenReturn(method);
             when(quantum.getNetworkType()).thenReturn(Quantum.QuantumType.QUANTUM);
@@ -209,10 +164,10 @@ public class QuantumTest {
 
         }
         catch( CloudException e ) {
-            e.printStackTrace();
+            fail("Unexpected exception " + e);
         }
         catch( InternalException e ) {
-            e.printStackTrace();
+            fail("Unexpected exception " + e);
         }
     }
 
@@ -220,18 +175,7 @@ public class QuantumTest {
     public void getSubnetTest() {
         NovaMethod method = mock(NovaMethod.class);
         Quantum quantum = mock(Quantum.class);
-        JSONObject json = null;
-        try {
-            InputStream is = getClass().getClassLoader().getResourceAsStream("nova/fixtures/get_subnet.json");
-            String jsonText = IOUtils.toString(is);
-            json = new JSONObject(jsonText);
-        }
-        catch( JSONException e ) {
-            throw new RuntimeException(e);
-        }
-        catch( IOException e ) {
-            throw new RuntimeException(e);
-        }
+        JSONObject json = readJson("nova/fixtures/get_subnet.json");
         try {
             when(quantum.getMethod()).thenReturn(method);
             when(quantum.getNetworkType()).thenReturn(Quantum.QuantumType.QUANTUM);
@@ -248,10 +192,10 @@ public class QuantumTest {
 
         }
         catch( CloudException e ) {
-            e.printStackTrace();
+            fail("Unexpected exception " + e);
         }
         catch( InternalException e ) {
-            e.printStackTrace();
+            fail("Unexpected exception " + e);
         }
     }
 
@@ -381,7 +325,7 @@ public class QuantumTest {
             fail("Test failed " + e.getMessage());
         }
         catch( JSONException e ) {
-            e.printStackTrace();
+            fail("Test failed " + e.getMessage());
         }
     }
 
@@ -423,18 +367,7 @@ public class QuantumTest {
     public void getNetworkResourceVersionTest() {
         NovaMethod method = mock(NovaMethod.class);
         Quantum quantum = mock(Quantum.class);
-        JSONObject json = null;
-        try {
-            InputStream is = getClass().getClassLoader().getResourceAsStream("nova/fixtures/get_networkResourceVersion.json");
-            String jsonText = IOUtils.toString(is);
-            json = new JSONObject(jsonText);
-        }
-        catch( JSONException e ) {
-            throw new RuntimeException(e);
-        }
-        catch( IOException e ) {
-            throw new RuntimeException(e);
-        }
+        JSONObject json = readJson("nova/fixtures/get_networkResourceVersion.json");
         try {
             when(quantum.getMethod()).thenReturn(method);
             when(method.getNetworks(anyString(), anyString(), anyBoolean())).thenReturn(json);
@@ -491,18 +424,7 @@ public class QuantumTest {
     public void isSubscribedTest() {
         NovaMethod method = mock(NovaMethod.class);
         Quantum quantum = mock(Quantum.class);
-        JSONObject json = null;
-        try {
-            InputStream is = getClass().getClassLoader().getResourceAsStream("nova/fixtures/get_vlan.json");
-            String jsonText = IOUtils.toString(is);
-            json = new JSONObject(jsonText);
-        }
-        catch( JSONException e ) {
-            throw new RuntimeException(e);
-        }
-        catch( IOException e ) {
-            throw new RuntimeException(e);
-        }
+        JSONObject json = readJson("nova/fixtures/get_vlan.json");
         try {
             when(quantum.getMethod()).thenReturn(method);
             when(quantum.getNetworkType()).thenReturn(Quantum.QuantumType.QUANTUM);
@@ -523,21 +445,11 @@ public class QuantumTest {
     public void listPortsByNetworkIdTest() {
         NovaMethod method = mock(NovaMethod.class);
         Quantum quantum = mock(Quantum.class);
-        JSONObject json = null;
+        JSONObject json = readJson("nova/fixtures/list_ports.json");
         final String testVlanId = "testVlanId";
         VLAN vlan = new VLAN();
         vlan.setProviderVlanId(testVlanId);
-        try {
-            InputStream is = getClass().getClassLoader().getResourceAsStream("nova/fixtures/list_ports.json");
-            String jsonText = IOUtils.toString(is);
-            json = new JSONObject(jsonText);
-        }
-        catch( IOException e ) {
-            throw new RuntimeException(e);
-        }
-        catch( JSONException e ) {
-            throw new RuntimeException(e);
-        }
+
         when(quantum.getMethod()).thenReturn(method);
         try {
             when(quantum.getNetworkType()).thenReturn(Quantum.QuantumType.QUANTUM);
@@ -566,19 +478,8 @@ public class QuantumTest {
         NovaMethod method = mock(NovaMethod.class);
         Quantum quantum = mock(Quantum.class);
         Subnet subnet = mock(Subnet.class);
-        JSONObject json = null;
+        JSONObject json = readJson("nova/fixtures/list_ports.json");
         final String testSubnetId = "66435044-1513-4f23-9f65-5557b130a008";
-        try {
-            InputStream is = getClass().getClassLoader().getResourceAsStream("nova/fixtures/list_ports.json");
-            String jsonText = IOUtils.toString(is);
-            json = new JSONObject(jsonText);
-        }
-        catch( IOException e ) {
-            throw new RuntimeException(e);
-        }
-        catch( JSONException e ) {
-            throw new RuntimeException(e);
-        }
         when(quantum.getMethod()).thenReturn(method);
         when(subnet.getProviderVlanId()).thenReturn(testSubnetId);
         try {
@@ -835,6 +736,7 @@ public class QuantumTest {
             throw new RuntimeException("Error while handling JSON", e);
         }
     }
+
     @Test
     public void toVlanTest() {
         Quantum quantum = mock(Quantum.class);
@@ -845,7 +747,7 @@ public class QuantumTest {
         vlan.setDescription("testDescription");
         final String networkId = "testId";
         final String testSubnetId = "testSubnetId";
+        // TODO
     }
 
-
-    }
+}

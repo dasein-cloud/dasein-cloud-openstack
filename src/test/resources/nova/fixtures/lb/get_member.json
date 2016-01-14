@@ -1,0 +1,11 @@
+{
+  "member": {
+    "address": "10.0.0.8",
+    "admin_state_up": true,
+    "id": "9a7aff27-fd41-4ec1-ba4c-3eb92c629313",
+    "protocol_port": 8080,
+    "pool_id": "72741b06-df4d-4715-b142-276b6bce75ab",
+    "tenant_id": "1a3e005cf9ce40308c900bcb08e5320c",
+    "weight": 1
+  }
+}
