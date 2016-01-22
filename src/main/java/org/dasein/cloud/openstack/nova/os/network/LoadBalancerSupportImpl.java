@@ -663,7 +663,7 @@ public class LoadBalancerSupportImpl extends AbstractLoadBalancerSupport<NovaOpe
      * @throws CloudException
      * @throws InternalException
      */
-    private List<LoadBalancer> findLoadBalancers(@Nullable String loadBalancerId) throws CloudException, InternalException {
+    protected List<LoadBalancer> findLoadBalancers(@Nullable String loadBalancerId) throws CloudException, InternalException {
         APITrace.begin(getProvider(), "LB.listLoadBalancers");
         try {
             // get all vips, optionally filtered by lbId
@@ -908,7 +908,7 @@ public class LoadBalancerSupportImpl extends AbstractLoadBalancerSupport<NovaOpe
     }
 
     // Below is the list of resource endpoints, these will change in LBaaS 2.0
-    private String getLoadBalancersResource() {
+    protected String getLoadBalancersResource() {
         return "v2.0/lb/pools";
     }
 

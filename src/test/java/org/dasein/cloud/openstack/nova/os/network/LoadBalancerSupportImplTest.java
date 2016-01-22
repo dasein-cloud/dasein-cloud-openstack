@@ -17,6 +17,7 @@ import org.mockito.Mockito;
 
 import java.util.*;
 
+import static org.hamcrest.Matchers.greaterThan;
 import static org.junit.Assert.*;
 import static org.junit.Assert.assertEquals;
 import static org.mockito.Matchers.*;
@@ -475,17 +476,184 @@ public class LoadBalancerSupportImplTest extends OpenStackTest {
 
     @Test
     public void findAllVips() {
-        fail("Test not implemented");
+        NovaMethod method = mock(NovaMethod.class);
+        LoadBalancerSupportImpl lbSupport = mock(LoadBalancerSupportImpl.class);
+        JSONObject jsonObject = readJson("nova/fixtures/lb/get_vips.json");
+        LoadBalancer lb = createTestLb();
+        try {
+            when(lbSupport.getMethod()).thenReturn(method);
+            when(lbSupport.getAccountNumber()).thenReturn(testOwnerId);
+            when(method.getNetworks(anyString(), anyString(), anyBoolean(), anyString())).thenReturn(jsonObject);
+            when(lbSupport.findAllVips(anyString())).thenCallRealMethod();
+
+            List<JSONObject> result = lbSupport.findAllVips(testLbId);
+
+            assertNotNull("List of VIPs cannot be null", result);
+            ArgumentCaptor<String> resourceCpt = ArgumentCaptor.forClass(String.class);
+            ArgumentCaptor<String> resourceIdCpt = ArgumentCaptor.forClass(String.class);
+            ArgumentCaptor<Boolean> suffixCpt = ArgumentCaptor.forClass(Boolean.class);
+            ArgumentCaptor<String> queryCpt = ArgumentCaptor.forClass(String.class);
+            verify(method, times(1)).getNetworks(resourceCpt.capture(), resourceIdCpt.capture(), suffixCpt.capture(), queryCpt.capture());
+            assertEquals("Resource is not correct", lbSupport.getLoadBalancersResource(), resourceCpt.getValue());
+            assertEquals("ResourceId is not correct", null, resourceIdCpt.getValue());
+            assertEquals("Suffix is not correct", false, suffixCpt.getValue());
+            assertEquals("Query is not correct", "?tenant_id="+ testOwnerId, queryCpt.getValue());
+
+        }
+        catch( CloudException e ) {
+            e.printStackTrace();
+        }
+        catch( InternalException e ) {
+            e.printStackTrace();
+        }
+
     }
 
     @Test
     public void findAllMembers() {
-        fail("Test not implemented");
+        NovaMethod method = mock(NovaMethod.class);
+        LoadBalancerSupportImpl lbSupport = mock(LoadBalancerSupportImpl.class);
+        JSONObject jsonObject = readJson("nova/fixtures/lb/get_member.json");
+        LoadBalancer lb = createTestLb();
+        try {
+            when(lbSupport.getMethod()).thenReturn(method);
+            when(lbSupport.getAccountNumber()).thenReturn(testOwnerId);
+            when(method.getNetworks(anyString(), anyString(), anyBoolean(), anyString())).thenReturn(jsonObject);
+            when(lbSupport.findAllMembers(anyString())).thenCallRealMethod();
+
+            List<JSONObject> result = lbSupport.findAllMembers(testLbId);
+
+            assertNotNull("List of members cannot be null", result);
+            ArgumentCaptor<String> resourceCpt = ArgumentCaptor.forClass(String.class);
+            ArgumentCaptor<String> resourceIdCpt = ArgumentCaptor.forClass(String.class);
+            ArgumentCaptor<Boolean> suffixCpt = ArgumentCaptor.forClass(Boolean.class);
+            ArgumentCaptor<String> queryCpt = ArgumentCaptor.forClass(String.class);
+            verify(method, times(1)).getNetworks(resourceCpt.capture(), resourceIdCpt.capture(), suffixCpt.capture(), queryCpt.capture());
+            assertEquals("Resource is not correct", lbSupport.getLoadBalancersResource(), resourceCpt.getValue());
+            assertEquals("ResourceId is not correct", null, resourceIdCpt.getValue());
+            assertEquals("Suffix is not correct", false, suffixCpt.getValue());
+            assertEquals("Query is not correct", "?tenant_id="+ testOwnerId, queryCpt.getValue());
+
+        }
+        catch( CloudException e ) {
+            e.printStackTrace();
+        }
+        catch( InternalException e ) {
+            e.printStackTrace();
+        }
+
     }
 
     @Test
-    public void findLoadBalancers() {
-        fail("Test not implemented");
+    public void findLoadBalancersWithoutId() {
+        NovaMethod method = mock(NovaMethod.class);
+        LoadBalancerSupportImpl lbSupport = mock(LoadBalancerSupportImpl.class);
+        JSONObject jsonObject = readJson("nova/fixtures/lb/get_pools.json");
+        LoadBalancer lb = createTestLb();
+
+        try {
+            List<JSONObject> jsonListeners = Arrays.asList(
+                    readJson("nova/fixtures/lb/get_vips.json").getJSONArray("vips").getJSONObject(0));
+            List<JSONObject> jsonMembers = Arrays.asList(
+                    readJson("nova/fixtures/lb/get_member.json").getJSONObject("member"));
+            when(lbSupport.getAccountNumber()).thenReturn(testOwnerId);
+            when(lbSupport.findAllVips(anyString())).thenReturn(jsonListeners);
+            when(lbSupport.findAllMembers(anyString())).thenReturn(jsonMembers);
+            when(lbSupport.getMethod()).thenReturn(method);
+            when(method.getNetworks(anyString(), anyString(), anyBoolean(), anyString())).thenReturn(jsonObject);
+            when(lbSupport.toLoadBalancer(any(JSONObject.class), anyList(), anyList())).thenReturn(lb);
+            when(lbSupport.findLoadBalancers(anyString())).thenCallRealMethod();
+
+            List<LoadBalancer> result = lbSupport.findLoadBalancers(null);
+
+            assertNotNull("List of loadbalancers cannot be null", result);
+            assertThat("The number of returned loadbalancers is not correct", result.size(), greaterThan(0));
+            ArgumentCaptor<String> lbIdCpt = ArgumentCaptor.forClass(String.class);
+            verify(lbSupport, times(1)).findAllVips(lbIdCpt.capture());
+            assertEquals("LoadbalancerId passed to findAllVips is incorrect", null, lbIdCpt.getValue());
+
+            verify(lbSupport, times(1)).findAllMembers(lbIdCpt.capture());
+            assertEquals("LoadbalancerId passed to findAllMembers is incorrect", null, lbIdCpt.getValue());
+
+            ArgumentCaptor<String> resourceCpt = ArgumentCaptor.forClass(String.class);
+            ArgumentCaptor<String> resourceIdCpt = ArgumentCaptor.forClass(String.class);
+            ArgumentCaptor<Boolean> suffixCpt = ArgumentCaptor.forClass(Boolean.class);
+            ArgumentCaptor<String> queryCpt = ArgumentCaptor.forClass(String.class);
+            verify(method, times(1)).getNetworks(resourceCpt.capture(), resourceIdCpt.capture(), suffixCpt.capture(), queryCpt.capture());
+            assertEquals("Resource is not correct", lbSupport.getLoadBalancersResource(), resourceCpt.getValue());
+            assertEquals("ResourceId is not correct", null, resourceIdCpt.getValue());
+            assertEquals("Suffix is not correct", false, suffixCpt.getValue());
+            assertEquals("Query is not correct", "?tenant_id="+ testOwnerId, queryCpt.getValue());
+
+
+        }
+        catch( CloudException e ) {
+            fail("Test failed " + e.getMessage());
+        }
+        catch( InternalException e ) {
+            fail("Test failed " + e.getMessage());
+        }
+        catch( JSONException e ) {
+            fail("Test failed " + e.getMessage());
+        }
+
+
+    }
+
+    @Test
+    public void findLoadBalancersWithId() {
+        NovaMethod method = mock(NovaMethod.class);
+        LoadBalancerSupportImpl lbSupport = mock(LoadBalancerSupportImpl.class);
+        JSONObject jsonObject = readJson("nova/fixtures/lb/get_pool.json");
+        LoadBalancer lb = createTestLb();
+
+        try {
+            List<JSONObject> jsonListeners = Arrays.asList(
+                    readJson("nova/fixtures/lb/get_vips.json").getJSONArray("vips").getJSONObject(0));
+            List<JSONObject> jsonMembers = Arrays.asList(
+                    readJson("nova/fixtures/lb/get_member.json").getJSONObject("member"));
+            when(lbSupport.getAccountNumber()).thenReturn(testOwnerId);
+            when(lbSupport.findAllVips(anyString())).thenReturn(jsonListeners);
+            when(lbSupport.findAllMembers(anyString())).thenReturn(jsonMembers);
+            when(lbSupport.getMethod()).thenReturn(method);
+            when(method.getNetworks(anyString(), anyString(), anyBoolean(), anyString())).thenReturn(jsonObject);
+            when(lbSupport.toLoadBalancer(any(JSONObject.class), anyList(), anyList())).thenReturn(lb);
+            when(lbSupport.findLoadBalancers(anyString())).thenCallRealMethod();
+
+            List<LoadBalancer> result = lbSupport.findLoadBalancers(testLbId);
+
+            assertNotNull("List of loadbalancers cannot be null", result);
+            assertThat("The number of returned loadbalancers is not correct", result.size(), greaterThan(0));
+            ArgumentCaptor<String> lbIdCpt = ArgumentCaptor.forClass(String.class);
+            verify(lbSupport, times(1)).findAllVips(lbIdCpt.capture());
+            assertEquals("LoadbalancerId passed to findAllVips is incorrect", testLbId, lbIdCpt.getValue());
+
+            verify(lbSupport, times(1)).findAllMembers(lbIdCpt.capture());
+            assertEquals("LoadbalancerId passed to findAllMembers is incorrect", testLbId, lbIdCpt.getValue());
+
+            ArgumentCaptor<String> resourceCpt = ArgumentCaptor.forClass(String.class);
+            ArgumentCaptor<String> resourceIdCpt = ArgumentCaptor.forClass(String.class);
+            ArgumentCaptor<Boolean> suffixCpt = ArgumentCaptor.forClass(Boolean.class);
+            ArgumentCaptor<String> queryCpt = ArgumentCaptor.forClass(String.class);
+            verify(method, times(1)).getNetworks(resourceCpt.capture(), resourceIdCpt.capture(), suffixCpt.capture(), queryCpt.capture());
+            assertEquals("Resource is not correct", lbSupport.getLoadBalancersResource(), resourceCpt.getValue());
+            assertEquals("ResourceId is not correct", testLbId, resourceIdCpt.getValue());
+            assertEquals("Suffix is not correct", false, suffixCpt.getValue());
+            assertEquals("Query is not correct", "?tenant_id="+ testOwnerId, queryCpt.getValue());
+
+
+        }
+        catch( CloudException e ) {
+            fail("Test failed " + e.getMessage());
+        }
+        catch( InternalException e ) {
+            fail("Test failed " + e.getMessage());
+        }
+        catch( JSONException e ) {
+            fail("Test failed " + e.getMessage());
+        }
+
+
     }
 
     @Test
@@ -553,12 +721,59 @@ public class LoadBalancerSupportImplTest extends OpenStackTest {
 
     @Test
     public void removeLoadBalancer() {
-        fail("Test not implemented");
+        NovaMethod method = mock(NovaMethod.class);
+        LoadBalancerSupportImpl lbSupport = mock(LoadBalancerSupportImpl.class);
+        LoadBalancer lb = createTestLb();
+        try {
+            List<JSONObject> jsonListeners = Arrays.asList(
+                    readJson("nova/fixtures/lb/get_vips.json").getJSONArray("vips").getJSONObject(0));
+            when(lbSupport.getLoadBalancer(anyString())).thenReturn(lb);
+            Mockito.doCallRealMethod().when(lbSupport).removeLoadBalancer(anyString());
+            when(lbSupport.findAllVips(anyString())).thenReturn(jsonListeners);
+            when(lbSupport.getMethod()).thenReturn(method);
+            lbSupport.removeLoadBalancer(testLbId);
+            ArgumentCaptor<String> resourceCpt = ArgumentCaptor.forClass(String.class);
+            ArgumentCaptor<String> resourceIdCpt = ArgumentCaptor.forClass(String.class);
+
+            verify(method, times(2)).deleteNetworks(resourceCpt.capture(), resourceIdCpt.capture());
+            assertEquals("Resource parameter when deleting a listener was wrong",
+                    lbSupport.getListenersResource(), resourceCpt.getAllValues().get(0));
+            assertEquals("Resource Id parameter when deleting a listener was wrong",
+                    "4ec89087-d057-4e2c-911f-60a3b47ee304", resourceIdCpt.getAllValues().get(0));
+
+            assertEquals("Resource parameter when deleting a loadbalancer was wrong",
+                    lbSupport.getLoadBalancersResource(), resourceCpt.getAllValues().get(1));
+            assertEquals("Resource Id parameter when deleting a loadbalancer was wrong",
+                    testLbId, resourceIdCpt.getAllValues().get(1));
+
+
+        }
+        catch( CloudException e ) {
+            fail("Test failed " + e.getMessage());
+
+        }
+        catch( InternalException e ) {
+            fail("Test failed " + e.getMessage());
+        }
+        catch( JSONException e ) {
+            fail("Test failed " + e.getMessage());
+        }
+
     }
 
     @Test
     public void getLoadBalancer() {
-        fail("Test not implemented");
+        LoadBalancerSupportImpl lbSupport = mock(LoadBalancerSupportImpl.class);
+        LoadBalancer lb = createTestLb();
+        try {
+            when(lbSupport.getLoadBalancer(anyString())).thenCallRealMethod();
+            when(lbSupport.findLoadBalancers(anyString())).thenReturn(Collections.singletonList(lb));
+            LoadBalancer loadBalancer = lbSupport.getLoadBalancer(testLbId);
+            assertEquals("Returned loadbalancer is not correct", lb, loadBalancer);
+        }
+        catch( CloudException | InternalException e ) {
+            fail("Test failed " + e.getMessage());
+        }
     }
 
 }
