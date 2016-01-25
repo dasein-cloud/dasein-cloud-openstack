@@ -355,11 +355,11 @@
             <timezone>-8</timezone>
         </developer>
     </developers>
-<!--    <profiles>
+    <profiles>
         <profile>
-            <id>no-integration</id>
+            <id>skipIntegration</id>
             <activation>
-                <activeByDefault>true</activeByDefault>
+                <property><name>!providerClass</name></property>
             </activation>
             <build>
                 <plugins>
@@ -373,5 +373,25 @@
                 </plugins>
             </build>
         </profile>
-    </profiles>-->
+        <profile>
+            <id>skipUnit</id>
+            <activation>
+                <property>
+                    <name>skipUnit</name>
+                    <value>true</value>
+                </property>
+            </activation>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-surefire-plugin</artifactId>
+                        <configuration>
+                            <skipTests>true</skipTests>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+    </profiles>
 </project>
