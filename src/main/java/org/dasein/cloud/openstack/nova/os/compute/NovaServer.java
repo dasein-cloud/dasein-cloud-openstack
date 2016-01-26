@@ -81,7 +81,7 @@ public class NovaServer extends AbstractVMSupport<NovaOpenStack> {
     }
 
     @Nonnull protected String getTenantId() throws CloudException, InternalException {
-        return getProvider().getContext().getAccountNumber();
+        return getContext().getAccountNumber();
     }
 
     private transient volatile NovaServerCapabilities capabilities;
@@ -159,9 +159,9 @@ public class NovaServer extends AbstractVMSupport<NovaOpenStack> {
             VirtualMachine vm = getVirtualMachine(vmId);
 
             if( vm == null ) {
-                throw new CloudException("No such virtual machine: " + vmId);
+                throw new ResourceNotFoundException("No such virtual machine: " + vmId);
             }
-            Map<String, Object> json = new HashMap<String, Object>();
+            Map<String, Object> json = new HashMap<>();
 
             json.put("os-getConsoleOutput", new HashMap<String, Object>());
 
@@ -247,7 +247,7 @@ public class NovaServer extends AbstractVMSupport<NovaOpenStack> {
             }
             catch( JSONException e ) {
                 logger.error("getVirtualMachine(): Unable to identify expected values in JSON: " + e.getMessage());
-                throw new CloudException(CloudErrorType.COMMUNICATION, 200, "invalidJson", "Missing JSON element for servers");
+                throw new CommunicationException("Missing JSON element for servers", e);
             }
             return null;
         }
@@ -263,7 +263,7 @@ public class NovaServer extends AbstractVMSupport<NovaOpenStack> {
             return ob.getJSONObject("server").getString("status");
         }
         catch( JSONException e ) {
-            throw new CloudException(e);
+            throw new CommunicationException("Unable to parse the server status response", e);
         }
         finally {
             APITrace.end();
@@ -274,8 +274,8 @@ public class NovaServer extends AbstractVMSupport<NovaOpenStack> {
     public @Nonnull VirtualMachine alterVirtualMachineProduct(@Nonnull String virtualMachineId, @Nonnull String productId) throws InternalException, CloudException {
         APITrace.begin(getProvider(), "VM.resize");
         try {
-            Map<String, Object> json = new HashMap<String, Object>();
-            Map<String, Object> action = new HashMap<String, Object>();
+            Map<String, Object> json = new HashMap<>();
+            Map<String, Object> action = new HashMap<>();
 
             action.put("flavorRef", productId);
             json.put("resize", action);
@@ -296,7 +296,8 @@ public class NovaServer extends AbstractVMSupport<NovaOpenStack> {
             }
             VirtualMachine vm = getVirtualMachine(virtualMachineId);
             if( status.equals("ACTIVE") && !( vm.getProductId().equals(productId) ) ) {
-                throw new CloudException("Failed to resize VM from " + getProduct(vm.getProductId()).getName() + " to " + getProduct(productId).getName());
+                throw new GeneralCloudException("Failed to resize VM from " + getProduct(vm.getProductId()).getName() + " to " + getProduct(productId).getName(),
+                        CloudErrorType.GENERAL);
             }
             return vm;
         }
@@ -363,7 +364,7 @@ public class NovaServer extends AbstractVMSupport<NovaOpenStack> {
                     }
                     catch (CloudException e) {
                         if (e.getHttpCode() != 403) {
-                            throw new CloudException(e.getMessage());
+                            throw e;
                         }
 
                         logger.warn("Unable to create port - trying to launch into general network");
@@ -385,7 +386,7 @@ public class NovaServer extends AbstractVMSupport<NovaOpenStack> {
         try {
             MachineImage targetImage = getImage(options.getMachineImageId());
             if( targetImage == null ) {
-                throw new CloudException("No such machine image: " + options.getMachineImageId());
+                throw new ResourceNotFoundException("No such machine image: " + options.getMachineImageId());
             }
             //Additional LPAR Call
             boolean isBareMetal = isBareMetal(options.getMachineImageId());
@@ -480,21 +481,18 @@ public class NovaServer extends AbstractVMSupport<NovaOpenStack> {
                             vm = getVirtualMachine(vmId);
                         }
                         if( vm == null || vm.getCurrentState() == null ) {
-                            throw new CloudException("VM failed to launch with a meaningful status");
+                            throw new GeneralCloudException("VM failed to launch with a meaningful status", CloudErrorType.GENERAL);
                         }
                         return vm;
                     }
                 }
                 catch( JSONException e ) {
                     logger.error("launch(): Unable to understand launch response: " + e.getMessage());
-                    if( logger.isTraceEnabled() ) {
-                        e.printStackTrace();
-                    }
-                    throw new CloudException(e);
+                    throw new CommunicationException("Invalid response", e);
                 }
             }
             logger.error("launch(): No server was created by the launch attempt, and no error was returned");
-            throw new CloudException("No virtual machine was launched");
+            throw new GeneralCloudException("No virtual machine was launched", CloudErrorType.GENERAL);
 
         }
         finally {
@@ -554,7 +552,7 @@ public class NovaServer extends AbstractVMSupport<NovaOpenStack> {
                     firewalls = Collections.emptyList();
                 }
                 JSONArray groups = server.getJSONArray("security_groups");
-                List<String> results = new ArrayList<String>();
+                List<String> results = new ArrayList<>();
 
                 for( int i=0; i<groups.length(); i++ ) {
                     JSONObject group = groups.getJSONObject(i);
@@ -577,7 +575,7 @@ public class NovaServer extends AbstractVMSupport<NovaOpenStack> {
                 return results;
             }
             else {
-                List<String> results = new ArrayList<String>();
+                List<String> results = new ArrayList<>();
 
                 JSONObject ob = getMethod().getServers("/os-security-groups/servers", vmId + "/os-security-groups", true);
 
@@ -599,8 +597,8 @@ public class NovaServer extends AbstractVMSupport<NovaOpenStack> {
             }
         }
         catch( JSONException e ) {
-            throw new CloudException(e);
-        }
+            logger.error("Unable to understand listFirewalls response: " + e.getMessage());
+            throw new CommunicationException("Unable to understand listFirewalls response: " + e.getMessage(), e);        }
     }
 
     @Override
@@ -618,11 +616,11 @@ public class NovaServer extends AbstractVMSupport<NovaOpenStack> {
 
                     return listFirewalls(vmId, server);
                 }
-                throw new CloudException("No such server: " + vmId);
+                throw new ResourceNotFoundException("No such server found for " + vmId);
             }
             catch( JSONException e ) {
                 logger.error("listFirewalls(): Unable to identify expected values in JSON: " + e.getMessage());
-                throw new CloudException(CloudErrorType.COMMUNICATION, 200, "invalidJson", "Missing JSON element for servers");
+                throw new CommunicationException("Unable to understand listFirewalls response: " + e.getMessage(), e);
             }
         }
         finally {
@@ -659,7 +657,7 @@ public class NovaServer extends AbstractVMSupport<NovaOpenStack> {
             }
 
             JSONObject ob = getMethod().getServers("/flavors", null, true);
-            List<FlavorRef> flavors = new ArrayList<FlavorRef>();
+            List<FlavorRef> flavors = new ArrayList<>();
 
             try {
                 if( ob != null && ob.has("flavors") ) {
@@ -703,7 +701,7 @@ public class NovaServer extends AbstractVMSupport<NovaOpenStack> {
             }
             catch( JSONException e ) {
                 logger.error("listProducts(): Unable to identify expected values in JSON: " + e.getMessage());
-                throw new CloudException(CloudErrorType.COMMUNICATION, 200, "invalidJson", "Missing JSON element for flavors: " + e.getMessage());
+                throw new CommunicationException("Unable to understand listProducts response: " + e.getMessage(), e);
             }
             cacheFlavors(flavors);
             return flavors;
@@ -742,7 +740,7 @@ public class NovaServer extends AbstractVMSupport<NovaOpenStack> {
 
         APITrace.begin(getProvider(), "VM.listProducts");
         try {
-            List<VirtualMachineProduct> products = new ArrayList<VirtualMachineProduct>();
+            List<VirtualMachineProduct> products = new ArrayList<>();
 
             for( FlavorRef flavor : listFlavors() ) {
                 if (options != null) {
@@ -766,7 +764,7 @@ public class NovaServer extends AbstractVMSupport<NovaOpenStack> {
         APITrace.begin(getProvider(), "VM.listVirtualMachineStatus");
         try {
             JSONObject ob = getMethod().getServers("/servers", null, true);
-            List<ResourceStatus> servers = new ArrayList<ResourceStatus>();
+            List<ResourceStatus> servers = new ArrayList<>();
 
             try {
                 if( ob != null && ob.has("servers") ) {
@@ -779,13 +777,12 @@ public class NovaServer extends AbstractVMSupport<NovaOpenStack> {
                         if( vm != null ) {
                             servers.add(vm);
                         }
-
                     }
                 }
             }
             catch( JSONException e ) {
-                logger.error("listVirtualMachines(): Unable to identify expected values in JSON: " + e.getMessage());                e.printStackTrace();
-                throw new CloudException(CloudErrorType.COMMUNICATION, 200, "invalidJson", "Missing JSON element for servers in " + ob.toString());
+                logger.error("listVirtualMachines(): Unable to identify expected values in JSON: " + e.getMessage());
+                throw new CommunicationException("Unable to understand listVirtualMachines response: " + e.getMessage(), e);
             }
             return servers;
         }
@@ -799,7 +796,7 @@ public class NovaServer extends AbstractVMSupport<NovaOpenStack> {
         APITrace.begin(getProvider(), "VM.listVirtualMachines");
         try {
             JSONObject ob = getMethod().getServers("/servers", null, true);
-            List<VirtualMachine> servers = new ArrayList<VirtualMachine>();
+            List<VirtualMachine> servers = new ArrayList<>();
 
             Iterable<IpAddress> ipv4 = Collections.emptyList(), ipv6 = Collections.emptyList();
             Iterable<VLAN> nets = Collections.emptyList();
@@ -831,8 +828,8 @@ public class NovaServer extends AbstractVMSupport<NovaOpenStack> {
                 }
             }
             catch( JSONException e ) {
-                logger.error("listVirtualMachines(): Unable to identify expected values in JSON: " + e.getMessage());                e.printStackTrace();
-                throw new CloudException(CloudErrorType.COMMUNICATION, 200, "invalidJson", "Missing JSON element for servers in " + ob.toString());
+                logger.error("listVirtualMachines(): Unable to identify expected values in JSON: " + e.getMessage());
+                throw new CommunicationException("Unable to understand listVirtualMachines response: " + e.getMessage(), e);
             }
             return servers;
         }
@@ -848,12 +845,12 @@ public class NovaServer extends AbstractVMSupport<NovaOpenStack> {
             VirtualMachine vm = getVirtualMachine(vmId);
 
             if( vm == null ) {
-                throw new CloudException("No such virtual machine: " + vmId);
+                throw new ResourceNotFoundException("No such virtual machine found for " + vmId);
             }
             if( !getCapabilities().supportsPause() ) {
                 throw new OperationNotSupportedException("Pause/unpause is not supported in " + getProvider().getCloudName());
             }
-            Map<String,Object> json = new HashMap<String,Object>();
+            Map<String,Object> json = new HashMap<>();
 
             json.put("pause", null);
 
@@ -871,12 +868,12 @@ public class NovaServer extends AbstractVMSupport<NovaOpenStack> {
             VirtualMachine vm = getVirtualMachine(vmId);
 
             if( vm == null ) {
-                throw new CloudException("No such virtual machine: " + vmId);
+                throw new ResourceNotFoundException("No such virtual machine found for " + vmId);
             }
             if( !getCapabilities().supportsResume() ) {
                 throw new OperationNotSupportedException("Suspend/resume is not supported in " + getProvider().getCloudName());
             }
-            Map<String,Object> json = new HashMap<String,Object>();
+            Map<String,Object> json = new HashMap<>();
 
             json.put("resume", null);
 
@@ -894,12 +891,12 @@ public class NovaServer extends AbstractVMSupport<NovaOpenStack> {
             VirtualMachine vm = getVirtualMachine(vmId);
 
             if( vm == null ) {
-                throw new CloudException("No such virtual machine: " + vmId);
+                throw new ResourceNotFoundException("No such virtual machine found for " + vmId);
             }
             if( !getCapabilities().supportsStart() ) {
                 throw new OperationNotSupportedException("Start/stop is not supported in " + getProvider().getCloudName());
             }
-            Map<String,Object> json = new HashMap<String,Object>();
+            Map<String,Object> json = new HashMap<>();
 
             json.put("os-start", null);
 
@@ -917,12 +914,12 @@ public class NovaServer extends AbstractVMSupport<NovaOpenStack> {
             VirtualMachine vm = getVirtualMachine(vmId);
 
             if( vm == null ) {
-                throw new CloudException("No such virtual machine: " + vmId);
+                throw new ResourceNotFoundException("No such virtual machine found for " + vmId);
             }
             if( !getCapabilities().supportsStop() ) {
                 throw new OperationNotSupportedException("Start/stop is not supported in " + getProvider().getCloudName());
             }
-            Map<String,Object> json = new HashMap<String,Object>();
+            Map<String,Object> json = new HashMap<>();
 
             json.put("os-stop", null);
 
@@ -940,12 +937,12 @@ public class NovaServer extends AbstractVMSupport<NovaOpenStack> {
             VirtualMachine vm = getVirtualMachine(vmId);
 
             if( vm == null ) {
-                throw new CloudException("No such virtual machine: " + vmId);
+                throw new ResourceNotFoundException("No such virtual machine found for " + vmId);
             }
             if( !getCapabilities().supportsSuspend() ) {
                 throw new OperationNotSupportedException("Suspend/resume is not supported in " + getProvider().getCloudName());
             }
-            Map<String,Object> json = new HashMap<String,Object>();
+            Map<String,Object> json = new HashMap<>();
 
             json.put("suspend", null);
 
@@ -963,12 +960,12 @@ public class NovaServer extends AbstractVMSupport<NovaOpenStack> {
             VirtualMachine vm = getVirtualMachine(vmId);
 
             if( vm == null ) {
-                throw new CloudException("No such virtual machine: " + vmId);
+                throw new ResourceNotFoundException("No such virtual machine found for " + vmId);
             }
             if( !getCapabilities().supportsUnPause() ) {
                 throw new OperationNotSupportedException("Pause/unpause is not supported in " + getProvider().getCloudName());
             }
-            Map<String,Object> json = new HashMap<String,Object>();
+            Map<String,Object> json = new HashMap<>();
 
             json.put("unpause", null);
 
@@ -983,8 +980,8 @@ public class NovaServer extends AbstractVMSupport<NovaOpenStack> {
     public void reboot(@Nonnull String vmId) throws CloudException, InternalException {
         APITrace.begin(getProvider(), "VM.reboot");
         try {
-            Map<String,Object> json = new HashMap<String,Object>();
-            Map<String,Object> action = new HashMap<String,Object>();
+            Map<String,Object> json = new HashMap<>();
+            Map<String,Object> action = new HashMap<>();
 
             action.put("type", "HARD");
             json.put("reboot", action);
@@ -1056,10 +1053,10 @@ public class NovaServer extends AbstractVMSupport<NovaOpenStack> {
             product.setDescription(json.getString("description"));
         }
         if( json.has("ram") ) {
-            product.setRamSize(new Storage<Megabyte>(json.getInt("ram"), Storage.MEGABYTE));
+            product.setRamSize(new Storage<>(json.getInt("ram"), Storage.MEGABYTE));
         }
         if( json.has("disk") ) {
-            product.setRootVolumeSize(new Storage<Gigabyte>(json.getInt("disk"), Storage.GIGABYTE));
+            product.setRootVolumeSize(new Storage<>(json.getInt("disk"), Storage.GIGABYTE));
         }
         product.setCpuCount(1);
 
@@ -1177,12 +1174,12 @@ public class NovaServer extends AbstractVMSupport<NovaOpenStack> {
         }
         JSONObject md = (server.has("metadata") && !server.isNull("metadata")) ? server.getJSONObject("metadata") : null;
 
-        Map<String,String> map = new HashMap<String,String>();
+        Map<String,String> map = new HashMap<>();
         boolean imaging = false;
 
         if( md != null ) {
             if( md.has("org.dasein.description") && vm.getDescription() == null ) {
-                    description = md.getString("org.dasein.description");
+                description = md.getString("org.dasein.description");
             }
             else if( md.has("Server Label") ) {
                 description = md.getString("Server Label");
@@ -1311,8 +1308,8 @@ public class NovaServer extends AbstractVMSupport<NovaOpenStack> {
             String[] names = JSONObject.getNames(addrs);
 
             if( names != null && names.length > 0 ) {
-                List<RawAddress> pub = new ArrayList<RawAddress>();
-                List<RawAddress> priv = new ArrayList<RawAddress>();
+                List<RawAddress> pub = new ArrayList<>();
+                List<RawAddress> priv = new ArrayList<>();
 
                 for( String name : names ) {
                     JSONArray arr = addrs.getJSONArray(name);

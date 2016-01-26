@@ -62,15 +62,10 @@ public class NovaLocationServices extends AbstractDataCenterServices<NovaOpenSta
     public DataCenter getDataCenter(String providerDataCenterId) throws InternalException, CloudException {
         APITrace.begin(getProvider(), "DC.getDataCenter");
         try {
-            ProviderContext ctx = getProvider().getContext();
-
-            if( ctx == null ) {
-                throw new CloudException("No context exists for this request");
-            }
-            String regionId = ctx.getRegionId();
+            String regionId = getContext().getRegionId();
 
             if( regionId == null ) {
-                throw new CloudException("No region is known for zones request");
+                throw new InternalException("No region is known for zones request");
             }
             for( DataCenter dc : listDataCenters(regionId) ) {
                 if( dc.getProviderDataCenterId().equals(providerDataCenterId) ) {
@@ -107,7 +102,7 @@ public class NovaLocationServices extends AbstractDataCenterServices<NovaOpenSta
             Region region = getRegion(providerRegionId);
 
             if( region == null ) {
-                throw new CloudException("No such region: " + providerRegionId);
+                throw new InternalException("No such region: " + providerRegionId);
             }
             DataCenter dc = new DataCenter();
 

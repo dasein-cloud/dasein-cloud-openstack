@@ -21,15 +21,11 @@ package org.dasein.cloud.openstack.nova.os.identity;
 
 import org.apache.http.HttpStatus;
 import org.apache.log4j.Logger;
-import org.dasein.cloud.CloudErrorType;
-import org.dasein.cloud.CloudException;
-import org.dasein.cloud.InternalException;
-import org.dasein.cloud.ProviderContext;
-import org.dasein.cloud.Requirement;
+import org.dasein.cloud.*;
+import org.dasein.cloud.identity.AbstractShellKeySupport;
 import org.dasein.cloud.identity.SSHKeypair;
 import org.dasein.cloud.identity.ServiceAction;
 import org.dasein.cloud.identity.ShellKeyCapabilities;
-import org.dasein.cloud.identity.ShellKeySupport;
 import org.dasein.cloud.openstack.nova.os.NovaException;
 import org.dasein.cloud.openstack.nova.os.NovaMethod;
 import org.dasein.cloud.openstack.nova.os.NovaOpenStack;
@@ -42,10 +38,7 @@ import org.json.JSONObject;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.io.UnsupportedEncodingException;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.Locale;
+import java.util.*;
 
 /**
  * OpenStack Nova SSH keypairs
@@ -54,31 +47,24 @@ import java.util.Locale;
  * @version 2011.10
  * @version 2012.04.1 Added some intelligence around features Rackspace does not support
  */
-public class NovaKeypair implements ShellKeySupport {
+public class NovaKeypair extends AbstractShellKeySupport<NovaOpenStack> {
     static private final Logger logger = NovaOpenStack.getLogger(NovaKeypair.class, "std");
 
-    private NovaOpenStack provider;
     private transient volatile NovaKeypairCapabilities capabilities;
 
-    NovaKeypair(@Nonnull NovaOpenStack cloud) { provider = cloud; }
+    NovaKeypair(@Nonnull NovaOpenStack cloud) { super(cloud); }
 
     private @Nonnull String getTenantId() throws CloudException, InternalException {
-        return provider.getContext().getAccountNumber();
+        return getContext().getAccountNumber();
     }
 
     @Override
     public @Nonnull SSHKeypair createKeypair(@Nonnull String name) throws InternalException, CloudException {
-        APITrace.begin(provider, "Keypair.createKeypair");
+        APITrace.begin(getProvider(), "Keypair.createKeypair");
         try {
-            ProviderContext ctx = provider.getContext();
-
-            if( ctx == null ) {
-                logger.error("No context exists for this request");
-                throw new InternalException("No context exists for this request");
-            }
-            HashMap<String,Object> wrapper = new HashMap<String,Object>();
-            HashMap<String,Object> json = new HashMap<String,Object>();
-            NovaMethod method = new NovaMethod(provider);
+            Map<String,Object> wrapper = new HashMap<>();
+            Map<String,Object> json = new HashMap<>();
+            NovaMethod method = new NovaMethod(getProvider());
 
             json.put("name", name);
             wrapper.put("keypair", json);
@@ -88,23 +74,20 @@ public class NovaKeypair implements ShellKeySupport {
                 try {
                     JSONObject ob = result.getJSONObject("keypair");
 
-                    SSHKeypair kp = toKeypair(ctx, ob);
+                    SSHKeypair kp = toKeypair(ob);
                     
                     if( kp == null ) {
-                        throw new CloudException("No matching keypair was generated from " + ob.toString());
+                        throw new CommunicationException("No matching keypair was generated from " + ob.toString());
                     }
                     return kp;
                 }
                 catch( JSONException e ) {
                     logger.error("createKeypair(): Unable to understand create response: " + e.getMessage());
-                    if( logger.isTraceEnabled() ) {
-                        e.printStackTrace();
-                    }
-                    throw new CloudException(e);
+                    throw new CommunicationException("Invalid response", e);
                 }
             }
             logger.error("createKeypair(): No keypair was created by the create attempt, and no error was returned");
-            throw new CloudException("No keypair was created");
+            throw new GeneralCloudException("No keypair was created", CloudErrorType.GENERAL);
 
         }
         finally {
@@ -114,15 +97,9 @@ public class NovaKeypair implements ShellKeySupport {
 
     @Override
     public void deleteKeypair(@Nonnull String keypairId) throws InternalException, CloudException {
-        APITrace.begin(provider, "Keypair.deleteKeypair");
+        APITrace.begin(getProvider(), "Keypair.deleteKeypair");
         try {
-            ProviderContext ctx = provider.getContext();
-
-            if( ctx == null ) {
-                logger.error("No context exists for this request");
-                throw new InternalException("No context exists for this request");
-            }
-            NovaMethod method = new NovaMethod(provider);
+            NovaMethod method = new NovaMethod(getProvider());
             long timeout = System.currentTimeMillis() + CalendarWrapper.HOUR;
 
             do {
@@ -146,7 +123,7 @@ public class NovaKeypair implements ShellKeySupport {
 
     @Override
     public @Nullable String getFingerprint(@Nonnull String keypairId) throws InternalException, CloudException {
-        APITrace.begin(provider, "Keypair.getFingerprint");
+        APITrace.begin(getProvider(), "Keypair.getFingerprint");
         try {
             SSHKeypair kp = getKeypair(keypairId);
             
@@ -158,22 +135,10 @@ public class NovaKeypair implements ShellKeySupport {
     }
 
     @Override
-    @Deprecated
-    public Requirement getKeyImportSupport() throws CloudException, InternalException {
-        return Requirement.OPTIONAL;
-    }
-
-    @Override
     public @Nullable SSHKeypair getKeypair(@Nonnull String keypairId) throws InternalException, CloudException {
-        APITrace.begin(provider, "Keypair.getKeypair");
+        APITrace.begin(getProvider(), "Keypair.getKeypair");
         try {
-            ProviderContext ctx = provider.getContext();
-
-            if( ctx == null ) {
-                logger.error("No context exists for this request");
-                throw new InternalException("No context exists for this request");
-            }
-            NovaMethod method = new NovaMethod(provider);
+            NovaMethod method = new NovaMethod(getProvider());
             JSONObject ob = method.getServers("/os-keypairs", null, false);
 
             try {
@@ -187,7 +152,7 @@ public class NovaKeypair implements ShellKeySupport {
                             if( json.has("keypair") ) {
                                 JSONObject kp = json.getJSONObject("keypair");
 
-                                SSHKeypair k = toKeypair(ctx, kp);
+                                SSHKeypair k = toKeypair(kp);
                                 
                                 if( k != null && keypairId.equals(k.getProviderKeypairId()) ) {
                                     return k;
@@ -196,7 +161,7 @@ public class NovaKeypair implements ShellKeySupport {
                         }
                         catch( JSONException e ) {
                             logger.error("Invalid JSON from cloud: " + e.getMessage());
-                            throw new CloudException("Invalid JSON from cloud: " + e.getMessage());
+                            throw new CommunicationException("Invalid JSON from cloud: " + e.getMessage(), e);
                         }
                     }
                 }
@@ -204,8 +169,7 @@ public class NovaKeypair implements ShellKeySupport {
             }
             catch( JSONException e ) {
                 logger.error("list(): Unable to identify expected values in JSON: " + e.getMessage());
-                e.printStackTrace();
-                throw new CloudException(CloudErrorType.COMMUNICATION, 200, "invalidJson", "Missing JSON element for keypair in " + ob.toString());
+                throw new CommunicationException("Missing JSON element for keypair in " + ob.toString(), e);
             }
         }
         finally {
@@ -222,24 +186,18 @@ public class NovaKeypair implements ShellKeySupport {
     @Override
     public @Nonnull ShellKeyCapabilities getCapabilities() throws CloudException, InternalException {
         if( capabilities == null ) {
-            capabilities = new NovaKeypairCapabilities(provider);
+            capabilities = new NovaKeypairCapabilities(getProvider());
         }
         return capabilities;
     }
 
     @Override
     public @Nonnull SSHKeypair importKeypair(@Nonnull String name, @Nonnull String publicKey) throws InternalException, CloudException {
-        APITrace.begin(provider, "Keypair.importKeypair");
+        APITrace.begin(getProvider(), "Keypair.importKeypair");
         try {
-            ProviderContext ctx = provider.getContext();
-
-            if( ctx == null ) {
-                logger.error("No context exists for this request");
-                throw new InternalException("No context exists for this request");
-            }
-            HashMap<String,Object> wrapper = new HashMap<String,Object>();
-            HashMap<String,Object> json = new HashMap<String,Object>();
-            NovaMethod method = new NovaMethod(provider);
+            Map<String,Object> wrapper = new HashMap<>();
+            Map<String,Object> json = new HashMap<>();
+            NovaMethod method = new NovaMethod(getProvider());
 
             json.put("name", name);
             json.put("public_key", publicKey);
@@ -250,21 +208,20 @@ public class NovaKeypair implements ShellKeySupport {
                 try {
                     JSONObject ob = result.getJSONObject("keypair");
 
-                    SSHKeypair kp = toKeypair(ctx, ob);
+                    SSHKeypair kp = toKeypair(ob);
 
                     if( kp == null ) {
-                        throw new CloudException("No matching keypair was generated from " + ob.toString());
+                        throw new CommunicationException("No matching keypair was generated from " + ob.toString());
                     }
                     return kp;
                 }
                 catch( JSONException e ) {
                     logger.error("importKeypair(): Unable to understand create response: " + e.getMessage());
-                    e.printStackTrace();
-                    throw new CloudException(e);
+                    throw new CommunicationException("Invalid response", e);
                 }
             }
             logger.error("importKeypair(): No keypair was created by the create attempt, and no error was returned");
-            throw new CloudException("No keypair was created");
+            throw new GeneralCloudException("No keypair was created", CloudErrorType.GENERAL);
 
         }
         finally {
@@ -273,9 +230,9 @@ public class NovaKeypair implements ShellKeySupport {
     }
 
     private boolean verifySupport() throws InternalException, CloudException {
-        APITrace.begin(provider, "Keypair.verifySupport");
+        APITrace.begin(getProvider(), "Keypair.verifySupport");
         try {
-            NovaMethod method = new NovaMethod(provider);
+            NovaMethod method = new NovaMethod(getProvider());
 
             try {
                 method.getServers("/os-keypairs", null, false);
@@ -295,9 +252,9 @@ public class NovaKeypair implements ShellKeySupport {
 
     @Override
     public boolean isSubscribed() throws InternalException, CloudException {
-        APITrace.begin(provider, "Keypair.isSubscribed");
+        APITrace.begin(getProvider(), "Keypair.isSubscribed");
         try {
-            return (provider.getComputeServices().getVirtualMachineSupport().isSubscribed() && verifySupport());
+            return (getProvider().getComputeServices().getVirtualMachineSupport().isSubscribed() && verifySupport());
         }
         finally {
             APITrace.end();
@@ -306,17 +263,11 @@ public class NovaKeypair implements ShellKeySupport {
 
     @Override
     public @Nonnull Collection<SSHKeypair> list() throws InternalException, CloudException {
-        APITrace.begin(provider, "Keypair.list");
+        APITrace.begin(getProvider(), "Keypair.list");
         try {
-            ProviderContext ctx = provider.getContext();
-
-            if( ctx == null ) {
-                logger.error("No context exists for this request");
-                throw new InternalException("No context exists for this request");
-            }
-            NovaMethod method = new NovaMethod(provider);
+            NovaMethod method = new NovaMethod(getProvider());
             JSONObject ob = method.getServers("/os-keypairs", null, false);
-            ArrayList<SSHKeypair> keypairs = new ArrayList<SSHKeypair>();
+            List<SSHKeypair> keypairs = new ArrayList<>();
 
             try {
                 if( ob != null && ob.has("keypairs") ) {
@@ -329,20 +280,19 @@ public class NovaKeypair implements ShellKeySupport {
                             if( json.has("keypair") ) {
                                 JSONObject kp = json.getJSONObject("keypair");
 
-                                keypairs.add(toKeypair(ctx, kp));
+                                keypairs.add(toKeypair(kp));
                             }
                         }
                         catch( JSONException e ) {
                             logger.error("Invalid JSON from cloud: " + e.getMessage());
-                            throw new CloudException("Invalid JSON from cloud: " + e.getMessage());
+                            throw new CommunicationException("Invalid JSON from cloud: " + e.getMessage(), e);
                         }
                     }
                 }
             }
             catch( JSONException e ) {
                 logger.error("list(): Unable to identify expected values in JSON: " + e.getMessage());
-                e.printStackTrace();
-                throw new CloudException(CloudErrorType.COMMUNICATION, 200, "invalidJson", "Missing JSON element for keypair in " + ob.toString());
+                throw new CommunicationException("Missing JSON element for keypair in " + ob.toString(), e);
             }
             return keypairs;
         }
@@ -356,7 +306,7 @@ public class NovaKeypair implements ShellKeySupport {
         return new String[0];
     }
     
-    private @Nullable SSHKeypair toKeypair(@Nonnull ProviderContext ctx, @Nullable JSONObject json) throws InternalException, CloudException {
+    private @Nullable SSHKeypair toKeypair(@Nullable JSONObject json) throws InternalException, CloudException {
         if( json == null ) {
             return null;
         }
@@ -382,16 +332,14 @@ public class NovaKeypair implements ShellKeySupport {
             kp.setName(name);
             kp.setProviderKeypairId(name);
             kp.setProviderOwnerId(getTenantId());
-            String regionId = ctx.getRegionId();
+            String regionId = getContext().getRegionId();
             kp.setProviderRegionId(regionId == null ? "" : regionId);
             return kp;
         }
         catch( UnsupportedEncodingException e ) {
-            e.printStackTrace();
             throw new InternalException(e);
         }
         catch( JSONException e ) {
-            e.printStackTrace();
             throw new InternalException(e);
         }
     }

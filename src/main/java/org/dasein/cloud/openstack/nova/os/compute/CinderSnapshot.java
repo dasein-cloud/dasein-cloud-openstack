@@ -20,12 +20,7 @@
 package org.dasein.cloud.openstack.nova.os.compute;
 
 import org.apache.log4j.Logger;
-import org.dasein.cloud.CloudErrorType;
-import org.dasein.cloud.CloudException;
-import org.dasein.cloud.InternalException;
-import org.dasein.cloud.OperationNotSupportedException;
-import org.dasein.cloud.ResourceStatus;
-import org.dasein.cloud.Tag;
+import org.dasein.cloud.*;
 import org.dasein.cloud.compute.AbstractSnapshotSupport;
 import org.dasein.cloud.compute.Snapshot;
 import org.dasein.cloud.compute.SnapshotCapabilities;
@@ -43,9 +38,7 @@ import org.json.JSONObject;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.Locale;
+import java.util.*;
 
 /**
  * Implements support for snapshots from the OpenStack Cinder API.
@@ -66,12 +59,12 @@ public class CinderSnapshot extends AbstractSnapshotSupport<NovaOpenStack> {
     }
 
     private @Nonnull String getTenantId() throws CloudException, InternalException {
-        return ((NovaOpenStack)getProvider()).getContext().getAccountNumber();
+        return getContext().getAccountNumber();
     }
 
     private @Nonnull String getResource() {
         // hp seems to be used the regular grizzly resource
-        // return (((NovaOpenStack)getProvider()).isHP() ? "/os-snapshots" : "/snapshots");
+        // return ((getProvider()).isHP() ? "/os-snapshots" : "/snapshots");
         return "/snapshots";
     }
 
@@ -85,9 +78,9 @@ public class CinderSnapshot extends AbstractSnapshotSupport<NovaOpenStack> {
                 throw new OperationNotSupportedException("Snapshot copying is not supported in " + getProvider().getCloudName());
             }
 
-            HashMap<String,Object> wrapper = new HashMap<String,Object>();
-            HashMap<String,Object> json = new HashMap<String,Object>();
-            NovaMethod method = new NovaMethod((NovaOpenStack)getProvider());
+            Map<String,Object> wrapper = new HashMap<>();
+            Map<String,Object> json = new HashMap<>();
+            NovaMethod method = new NovaMethod(getProvider());
 
             json.put("volume_id", volumeId);
             json.put("display_name", options.getName());
@@ -106,14 +99,12 @@ public class CinderSnapshot extends AbstractSnapshotSupport<NovaOpenStack> {
                 }
                 catch( JSONException e ) {
                     logger.error("create(): Unable to understand create response: " + e.getMessage());
-                    if( logger.isTraceEnabled() ) {
-                        e.printStackTrace();
-                    }
-                    throw new CloudException(e);
+                    throw new CommunicationException("Unable to understand create response: " + e.getMessage(), e);
+
                 }
             }
             logger.error("snapshot(): No snapshot was created by the create attempt, and no error was returned");
-            throw new CloudException("No snapshot was created");
+            throw new GeneralCloudException("No listener was created", CloudErrorType.GENERAL);
 
         }
         finally {
@@ -122,11 +113,12 @@ public class CinderSnapshot extends AbstractSnapshotSupport<NovaOpenStack> {
     }
 
     private transient volatile CinderSnapshotCapabilities capabilities;
+    
     @Nonnull
     @Override
     public SnapshotCapabilities getCapabilities() throws CloudException, InternalException {
         if( capabilities == null ) {
-            capabilities = new CinderSnapshotCapabilities((NovaOpenStack)getProvider());
+            capabilities = new CinderSnapshotCapabilities(getProvider());
         }
         return capabilities;
     }
@@ -135,7 +127,7 @@ public class CinderSnapshot extends AbstractSnapshotSupport<NovaOpenStack> {
     public @Nullable Snapshot getSnapshot(@Nonnull String snapshotId) throws InternalException, CloudException {
         APITrace.begin(getProvider(), "Snapshot.getSnapshot");
         try {
-            NovaMethod method = new NovaMethod((NovaOpenStack)getProvider());
+            NovaMethod method = new NovaMethod(getProvider());
             JSONObject ob = method.getResource(SERVICE, getResource(), snapshotId, true);
 
             if( ob == null ) {
@@ -148,7 +140,7 @@ public class CinderSnapshot extends AbstractSnapshotSupport<NovaOpenStack> {
             }
             catch( JSONException e ) {
                 logger.error("getSnapshot(): Unable to identify expected values in JSON: " + e.getMessage());
-                throw new CloudException(CloudErrorType.COMMUNICATION, 200, "invalidJson", "Missing JSON element for snapshot");
+                throw new CommunicationException("Unable to identify expected values in JSON: " + e.getMessage(), e);
             }
             return null;
         }
@@ -161,8 +153,8 @@ public class CinderSnapshot extends AbstractSnapshotSupport<NovaOpenStack> {
     public @Nonnull Iterable<ResourceStatus> listSnapshotStatus() throws InternalException, CloudException {
         APITrace.begin(getProvider(), "Snapshot.listSnapshotStatus");
         try {
-            NovaMethod method = new NovaMethod((NovaOpenStack)getProvider());
-            ArrayList<ResourceStatus> snapshots = new ArrayList<ResourceStatus>();
+            NovaMethod method = new NovaMethod(getProvider());
+            List<ResourceStatus> snapshots = new ArrayList<>();
 
             JSONObject json = method.getResource(SERVICE, getResource(), null, false);
 
@@ -179,7 +171,7 @@ public class CinderSnapshot extends AbstractSnapshotSupport<NovaOpenStack> {
                     }
                 }
                 catch( JSONException e ) {
-                    throw new CloudException(CloudErrorType.COMMUNICATION, 200, "invalidJson", "Missing JSON element for snapshots in " + json.toString());
+                    throw new CommunicationException("Unable to parse response: " + e.getMessage(), e);
                 }
             }
             return snapshots;
@@ -198,7 +190,7 @@ public class CinderSnapshot extends AbstractSnapshotSupport<NovaOpenStack> {
     public boolean isSubscribed() throws InternalException, CloudException {
         APITrace.begin(getProvider(), "Snapshot.isSubscribed");
         try {
-            return (((NovaOpenStack)getProvider()).getAuthenticationContext().getServiceUrl(SERVICE) != null);
+            return (getProvider().getAuthenticationContext().getServiceUrl(SERVICE) != null);
         }
         finally {
             APITrace.end();
@@ -209,8 +201,8 @@ public class CinderSnapshot extends AbstractSnapshotSupport<NovaOpenStack> {
     public @Nonnull Iterable<Snapshot> listSnapshots() throws InternalException, CloudException {
         APITrace.begin(getProvider(), "Snapshot.listSnapshots");
         try {
-            NovaMethod method = new NovaMethod((NovaOpenStack)getProvider());
-            ArrayList<Snapshot> snapshots = new ArrayList<Snapshot>();
+            NovaMethod method = new NovaMethod(getProvider());
+            List<Snapshot> snapshots = new ArrayList<>();
 
             JSONObject json = method.getResource(SERVICE, getResource(), null, false);
 
@@ -228,8 +220,7 @@ public class CinderSnapshot extends AbstractSnapshotSupport<NovaOpenStack> {
                 }
                 catch( JSONException e ) {
                     logger.error("listSnapshots(): Unable to identify expected values in JSON: " + e.getMessage());
-                    e.printStackTrace();
-                    throw new CloudException(CloudErrorType.COMMUNICATION, 200, "invalidJson", "Missing JSON element for snapshots in " + json.toString());
+                    throw new CommunicationException("Unable to parse response " + e.getMessage(), e);
                 }
             }
             return snapshots;
@@ -262,7 +253,7 @@ public class CinderSnapshot extends AbstractSnapshotSupport<NovaOpenStack> {
                 try { Thread.sleep(15000L); }
                 catch( InterruptedException ignore ) { }
             }
-            NovaMethod method = new NovaMethod((NovaOpenStack)getProvider());
+            NovaMethod method = new NovaMethod(getProvider());
 
             method.deleteResource(SERVICE, getResource(), snapshotId, null);
             timeout = System.currentTimeMillis() + (CalendarWrapper.MINUTE * 5L);
@@ -290,8 +281,8 @@ public class CinderSnapshot extends AbstractSnapshotSupport<NovaOpenStack> {
     public @Nonnull Iterable<Snapshot> searchSnapshots(@Nonnull SnapshotFilterOptions options) throws InternalException, CloudException {
         APITrace.begin(getProvider(), "Snapshot.searchSnapshots");
         try {
-            NovaMethod method = new NovaMethod((NovaOpenStack)getProvider());
-            ArrayList<Snapshot> snapshots = new ArrayList<Snapshot>();
+            NovaMethod method = new NovaMethod(getProvider());
+            List<Snapshot> snapshots = new ArrayList<>();
 
             JSONObject json = method.getResource(SERVICE, getResource(), null, false);
 
@@ -309,8 +300,7 @@ public class CinderSnapshot extends AbstractSnapshotSupport<NovaOpenStack> {
                 }
                 catch( JSONException e ) {
                     logger.error("searchSnapshots(): Unable to identify expected values in JSON: " + e.getMessage());
-                    e.printStackTrace();
-                    throw new CloudException(CloudErrorType.COMMUNICATION, 200, "invalidJson", "Missing JSON element for snapshots in " + json.toString());
+                    throw new CommunicationException("Unable to identify expected values in JSON: " + e.getMessage(), e);
                 }
             }
             return snapshots;
@@ -379,10 +369,10 @@ public class CinderSnapshot extends AbstractSnapshotSupport<NovaOpenStack> {
                     logger.warn("DEBUG: Unknown OpenStack snapshot state: " + status);
                 }
             }
-            long created = (json.has("createdAt") ? ((NovaOpenStack)getProvider()).parseTimestamp(json.getString("createdAt")) : -1L);
+            long created = (json.has("createdAt") ? getProvider().parseTimestamp(json.getString("createdAt")) : -1L);
 
             if( created < 1L ) {
-                created = (json.has("created_at") ? ((NovaOpenStack)getProvider()).parseTimestamp(json.getString("created_at")) : -1L);
+                created = (json.has("created_at") ? getProvider().parseTimestamp(json.getString("created_at")) : -1L);
             }
             int size = (json.has("size") ? json.getInt("size") : 0);
 
@@ -400,7 +390,7 @@ public class CinderSnapshot extends AbstractSnapshotSupport<NovaOpenStack> {
             return snapshot;
         }
         catch( JSONException e ) {
-            throw new CloudException(e);
+            throw new CommunicationException("Unable to parse response: " + e.getMessage(), e);
         }
     }
 
@@ -436,7 +426,7 @@ public class CinderSnapshot extends AbstractSnapshotSupport<NovaOpenStack> {
             return new ResourceStatus(snapshotId, state);
         }
         catch( JSONException e ) {
-            throw new CloudException(e);
+            throw new CommunicationException("Unable to parse response: " + e.getMessage(), e);
         }
     }
     
@@ -444,7 +434,7 @@ public class CinderSnapshot extends AbstractSnapshotSupport<NovaOpenStack> {
     public void setTags(@Nonnull String snapshotId, @Nonnull Tag... tags) throws CloudException, InternalException {
     	APITrace.begin(getProvider(), "Snapshot.setTags");
     	try {
-    		((NovaOpenStack) getProvider()).createTags( SERVICE, "/snapshots", snapshotId, tags);
+    		getProvider().createTags( SERVICE, "/snapshots", snapshotId, tags);
     	}
     	finally {
     		APITrace.end();
@@ -462,7 +452,7 @@ public class CinderSnapshot extends AbstractSnapshotSupport<NovaOpenStack> {
     public void updateTags(@Nonnull String snapshotId, @Nonnull Tag... tags) throws CloudException, InternalException {
     	APITrace.begin(getProvider(), "Snapshot.updateTags");
     	try {
-    		((NovaOpenStack) getProvider()).updateTags( SERVICE, "/snapshots", snapshotId, tags);
+    		getProvider().updateTags( SERVICE, "/snapshots", snapshotId, tags);
     	}
     	finally {
     		APITrace.end();
@@ -480,7 +470,7 @@ public class CinderSnapshot extends AbstractSnapshotSupport<NovaOpenStack> {
     public void removeTags(@Nonnull String snapshotId, @Nonnull Tag... tags) throws CloudException, InternalException {
     	APITrace.begin(getProvider(), "Snapshot.removeTags");
     	try {
-    		((NovaOpenStack) getProvider()).removeTags( SERVICE, "/snapshots", snapshotId, tags);
+    		getProvider().removeTags( SERVICE, "/snapshots", snapshotId, tags);
     	}
     	finally {
     		APITrace.end();

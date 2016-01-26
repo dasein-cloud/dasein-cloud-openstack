@@ -31,11 +31,7 @@ import java.util.Locale;
 import java.util.Map;
 
 import org.apache.log4j.Logger;
-import org.dasein.cloud.CloudException;
-import org.dasein.cloud.InternalException;
-import org.dasein.cloud.OperationNotSupportedException;
-import org.dasein.cloud.ProviderContext;
-import org.dasein.cloud.Tag;
+import org.dasein.cloud.*;
 import org.dasein.cloud.identity.ServiceAction;
 import org.dasein.cloud.openstack.nova.os.AuthenticationContext;
 import org.dasein.cloud.openstack.nova.os.NovaOpenStack;
@@ -76,39 +72,17 @@ public class SwiftBlobStore extends AbstractBlobStoreSupport<NovaOpenStack> {
     }
 
     @Override
-    public boolean allowsNestedBuckets() throws CloudException, InternalException {
-        return false;
-    }
-
-    @Override
-    public boolean allowsRootObjects() throws CloudException, InternalException {
-        return false;
-    }
-
-    @Override
-    public boolean allowsPublicSharing() throws CloudException, InternalException {
-        return false;
-    }
-
-    @Override
     public @Nonnull Blob createBucket(@Nonnull String bucketName, boolean findFreeName) throws InternalException, CloudException {
         APITrace.begin(getProvider(), "Blob.createBucket");
         try {
             if( bucketName.contains("/") ) {
                 throw new OperationNotSupportedException("Nested buckets are not supported");
             }
-            ProviderContext ctx = getProvider().getContext();
-
-            if( ctx == null ) {
-                throw new InternalException("No context was set for this request");
-            }
-            String regionId = ctx.getRegionId();
+            String regionId = getContext().getRegionId();
 
             if( regionId == null ) {
                 throw new InternalException("No region ID was specified for this request");
             }
-
-            Logger logger = NovaOpenStack.getLogger(SwiftBlobStore.class, "std");
 
             if( logger.isTraceEnabled() ) {
                 logger.trace("enter - " + SwiftBlobStore.class.getName() + ".createBucket(" + bucketName + "," + findFreeName + ")");
@@ -117,7 +91,7 @@ public class SwiftBlobStore extends AbstractBlobStoreSupport<NovaOpenStack> {
                 try {
                     if( exists(bucketName) ) {
                         if( !findFreeName ) {
-                            throw new CloudException("The bucket " + bucketName + " already exists.");
+                            throw new InternalException("The bucket " + bucketName + " already exists.");
                         }
                         else {
                             bucketName = findFreeName(bucketName);
@@ -129,17 +103,14 @@ public class SwiftBlobStore extends AbstractBlobStoreSupport<NovaOpenStack> {
                 }
                 catch( CloudException e ) {
                     logger.error(e);
-                    e.printStackTrace();
                     throw e;
                 }
                 catch(InternalException e ) {
                     logger.error(e);
-                    e.printStackTrace();
                     throw e;
                 }
                 catch( RuntimeException e ) {
                     logger.error(e);
-                    e.printStackTrace();
                     throw new InternalException(e);
                 }
             }
@@ -158,14 +129,11 @@ public class SwiftBlobStore extends AbstractBlobStoreSupport<NovaOpenStack> {
         APITrace.begin(getProvider(), "Blob.createBucket");
         try {
             try {
-                SwiftMethod method = new SwiftMethod(getProvider());
-
-                method.put(name);
+                new SwiftMethod(getProvider()).put(name);
             }
             catch( RuntimeException e ) {
                 logger.error("Could not create bucket: " + e.getMessage());
-                e.printStackTrace();
-                throw new CloudException(e);
+                throw new GeneralCloudException("Could not create bucket", e, CloudErrorType.GENERAL);
             }
         }
         finally {
@@ -178,9 +146,7 @@ public class SwiftBlobStore extends AbstractBlobStoreSupport<NovaOpenStack> {
         APITrace.begin(getProvider(), "exists");
         try {
             try {
-                SwiftMethod method = new SwiftMethod(getProvider());
-
-                for( String container : method.get(null) ) {
+                for( String container : new SwiftMethod(getProvider()).get(null) ) {
                     if( container.equals(bucketName) ) {
                         return true;
                     }
@@ -189,8 +155,7 @@ public class SwiftBlobStore extends AbstractBlobStoreSupport<NovaOpenStack> {
             }
             catch( RuntimeException e ) {
                 logger.error("Could not retrieve file info for " + bucketName + ": " + e.getMessage());
-                e.printStackTrace();
-                throw new CloudException(e);
+                throw new GeneralCloudException("Could not retrieve file info for bucket", e, CloudErrorType.GENERAL);
             }
         }
         finally {
@@ -250,7 +215,7 @@ public class SwiftBlobStore extends AbstractBlobStoreSupport<NovaOpenStack> {
         APITrace.begin(getProvider(), "Blob.getObjectSize");
         try {
             if( bucket == null ) {
-                throw new CloudException("Requested object size for object in null bucket");
+                throw new ResourceNotFoundException("No such object: " + bucket );
             }
             if( object == null ) {
                 return null;
@@ -267,16 +232,11 @@ public class SwiftBlobStore extends AbstractBlobStoreSupport<NovaOpenStack> {
             if( len < 0L ) {
                 return null;
             }
-            return new Storage<Byte>(len, Storage.BYTE);
+            return new Storage<>(len, Storage.BYTE);
         }
         finally {
             APITrace.end();
         }
-    }
-
-    @Override
-    public int getMaxBuckets() throws CloudException, InternalException {
-        return MAX_BUCKETS;
     }
 
     private @Nonnull String findFreeName(@Nonnull String bucket) throws InternalException, CloudException {
@@ -328,7 +288,7 @@ public class SwiftBlobStore extends AbstractBlobStoreSupport<NovaOpenStack> {
         APITrace.begin(getProvider(), "Blob.get");
         try {
             if( bucket == null ) {
-                throw new OperationNotSupportedException("No such object: " + bucket + "/" + location);
+                throw new ResourceNotFoundException("No such object: " + bucket + "/" + location);
             }
             if( toFile.exists() ) {
                 if( !toFile.delete() ) {
@@ -340,7 +300,7 @@ public class SwiftBlobStore extends AbstractBlobStoreSupport<NovaOpenStack> {
 
             input = method.get(bucket, location);
             if( input == null ) {
-                throw new CloudException("No such object: " + bucket + "/" + location);
+                throw new ResourceNotFoundException("No such object: " + bucket + "/" + location);
             }
             try {
                 copy(input, new FileOutputStream(toFile), transfer);
@@ -353,17 +313,6 @@ public class SwiftBlobStore extends AbstractBlobStoreSupport<NovaOpenStack> {
             APITrace.end();
         }
     }
-
-    @Override
-    public Storage<org.dasein.util.uom.storage.Byte> getMaxObjectSize() {
-        return MAX_OBJECT_SIZE;
-    }
-
-    @Override
-    public int getMaxObjectsPerBucket() throws CloudException, InternalException {
-        return MAX_OBJECTS;
-    }
-
 
     private long getMetaDataLength(@Nonnull Map<String,String> meta) {
         return getMetaDataLong("Content-Length", meta);
@@ -393,16 +342,6 @@ public class SwiftBlobStore extends AbstractBlobStoreSupport<NovaOpenStack> {
      */
 
     @Override
-    public @Nonnull String getProviderTermForBucket(@Nonnull Locale locale) {
-        return "bucket";
-    }
-
-    @Override
-    public @Nonnull String getProviderTermForObject(@Nonnull Locale locale) {
-        return "object";
-    }
-
-    @Override
     public boolean isPublic(@Nullable String bucket, @Nullable String object) throws CloudException, InternalException {
         return false;
     }
@@ -423,19 +362,15 @@ public class SwiftBlobStore extends AbstractBlobStoreSupport<NovaOpenStack> {
 
     @Override
     public @Nonnull Collection<Blob> list(final @Nullable String bucket) throws CloudException, InternalException {
-        final ProviderContext ctx = getProvider().getContext();
         PopulatorThread<Blob> populator;
 
-        if( ctx == null ) {
-            throw new CloudException("No context was specified for this request");
-        }
-        final String regionId = ctx.getRegionId();
+        final String regionId = getContext().getRegionId();
 
         if( regionId == null ) {
-            throw new CloudException("No region ID was specified");
+            throw new InternalException("No region ID was specified");
         }
         getProvider().hold();
-        populator = new PopulatorThread<Blob>(new JiteratorPopulator<Blob>() {
+        populator = new PopulatorThread<>(new JiteratorPopulator<Blob>() {
             public void populate(@Nonnull Jiterator<Blob> iterator) throws CloudException, InternalException {
                 try {
                     APITrace.begin(getProvider(), "Blob.list");
@@ -465,22 +400,18 @@ public class SwiftBlobStore extends AbstractBlobStoreSupport<NovaOpenStack> {
     }
 
     private void loadBuckets(@Nonnull String regionId, @Nonnull Jiterator<Blob> iterator) throws CloudException, InternalException {
-        Logger logger = NovaOpenStack.getLogger(SwiftBlobStore.class, "std");
-
         if( logger.isTraceEnabled() ) {
             logger.trace("enter - " + SwiftBlobStore.class.getName() + ".loadBuckets(" + regionId + "," + iterator + ")");
         }
         try {
             SwiftMethod method = new SwiftMethod(getProvider());
             Collection<String> containers;
-
             try {
                 containers = method.get(null);
             }
             catch( RuntimeException e ) {
                 logger.error("Could not load buckets: " + e.getMessage());
-                e.printStackTrace();
-                throw new CloudException(e);
+                throw new GeneralCloudException("Could not load buckets ", e, CloudErrorType.GENERAL);
             }
             for( String container : containers ) {
                 iterator.push(Blob.getInstance(regionId, "/" + container, container, 0L));
@@ -494,8 +425,6 @@ public class SwiftBlobStore extends AbstractBlobStoreSupport<NovaOpenStack> {
     }
 
     private void loadObjects(@Nonnull String regionId, @Nonnull String bucketName, @Nonnull Jiterator<Blob> iterator) throws CloudException, InternalException {
-        Logger logger = NovaOpenStack.getLogger(SwiftBlobStore.class, "std");
-
         if( logger.isTraceEnabled() ) {
             logger.trace("enter - " + SwiftBlobStore.class.getName() + ".loadFiles(" + bucketName + "," + iterator + ")");
         }
@@ -513,8 +442,8 @@ public class SwiftBlobStore extends AbstractBlobStoreSupport<NovaOpenStack> {
             }
             catch( RuntimeException e ) {
                 logger.error("Could not list files in " + bucketName + ": " + e.getMessage());
-                e.printStackTrace();
-                throw new CloudException(e);
+                throw new GeneralCloudException("Could not list files ", e, CloudErrorType.GENERAL);
+
             }
             for( String info : files ) {
                 Map<String,String> metaData = method.head(bucketName, info);
@@ -549,13 +478,13 @@ public class SwiftBlobStore extends AbstractBlobStoreSupport<NovaOpenStack> {
         APITrace.begin(getProvider(), "Blob.move");
         try {
             if( sourceBucket == null ) {
-                throw new CloudException("No source bucket was specified");
+                throw new InternalException("No source bucket was specified");
             }
             if( targetBucket == null ) {
-                throw new CloudException("No target bucket was specified");
+                throw new InternalException("No target bucket was specified");
             }
             if( object == null ) {
-                throw new CloudException("No source object was specified");
+                throw new InternalException("No source object was specified");
             }
             copy(sourceBucket, object, targetBucket, object);
             removeObject(sourceBucket, object);
@@ -609,7 +538,6 @@ public class SwiftBlobStore extends AbstractBlobStoreSupport<NovaOpenStack> {
             }
             catch( IOException e ) {
                 logger.error("Failed to write file: " + e.getMessage());
-                e.printStackTrace();
                 throw new InternalException(e);
             }
         }
@@ -622,9 +550,7 @@ public class SwiftBlobStore extends AbstractBlobStoreSupport<NovaOpenStack> {
     public void removeBucket(@Nonnull String bucket) throws CloudException, InternalException {
         APITrace.begin(getProvider(), "Blob.removeBucket");
         try {
-            SwiftMethod method = new SwiftMethod(getProvider());
-
-            method.delete(bucket);
+            new SwiftMethod(getProvider()).delete(bucket);
         }
         finally {
             APITrace.end();
@@ -638,9 +564,7 @@ public class SwiftBlobStore extends AbstractBlobStoreSupport<NovaOpenStack> {
             if( bucket == null ) {
                 throw new OperationNotSupportedException("Swift does not support root objects");
             }
-            SwiftMethod method = new SwiftMethod(getProvider());
-
-            method.delete(bucket, name);
+            new SwiftMethod(getProvider()).delete(bucket, name);
         }
         finally {
             APITrace.end();
@@ -692,7 +616,7 @@ public class SwiftBlobStore extends AbstractBlobStoreSupport<NovaOpenStack> {
         APITrace.begin(getProvider(), "Blob.removeObject");
         try {
             if( bucket == null ) {
-                throw new CloudException("No bucket was specified");
+                throw new InternalException("No bucket was specified");
             }
             copy(bucket, object, bucket, newName);
             removeObject(bucket, object);
@@ -720,20 +644,6 @@ public class SwiftBlobStore extends AbstractBlobStoreSupport<NovaOpenStack> {
         }
     }
 
-    @Override
-    public @Nonnull
-    NamingConstraints getBucketNameRules() throws CloudException, InternalException {
-        //return NameRules.getInstance(minChars, maxChars, mixedCase, allowNumbers, latin1Only, specialChars);
-        return NamingConstraints.getAlphaNumeric(1, 255).lowerCaseOnly().limitedToLatin1().constrainedBy(new char[] { '-', '.' });
-        //return NameRules.getInstance(1, 255, false, true, true, new char[] { '-', '.' });
-    }
-
-    @Override
-    public @Nonnull NamingConstraints getObjectNameRules() throws CloudException, InternalException {
-        return NamingConstraints.getAlphaNumeric(1, 255).lowerCaseOnly().limitedToLatin1().constrainedBy(new char[] { '-', '.', ',', '#', '+' });
-        //return NameRules.getInstance(1, 255, false, true, true, new char[] { '-', '.', ',', '#', '+' });
-    }
-    
     @Override
     public void updateTags(@Nonnull String bucketName, @Nonnull Tag ... tags) throws CloudException, InternalException {
     	APITrace.begin(getProvider(), "Bucket.updateTags");

@@ -47,7 +47,7 @@ public class SwiftMethod extends AbstractMethod {
         String endpoint = context.getStorageUrl();
         
         if( endpoint == null ) {
-            throw new CloudException("No storage endpoint exists for " + context.getMyRegion());
+            throw new InternalException("No storage endpoint exists for " + context.getMyRegion());
         }
         try {
             delete(context.getAuthToken(), endpoint, "/" + bucket);
@@ -70,7 +70,7 @@ public class SwiftMethod extends AbstractMethod {
         String endpoint = context.getStorageUrl();
 
         if( endpoint == null ) {
-            throw new CloudException("No storage endpoint exists for " + context.getMyRegion());
+            throw new InternalException("No storage endpoint exists for " + context.getMyRegion());
         }
         try {
             delete(context.getAuthToken(), endpoint, "/" + bucket + "/" + object);
@@ -92,7 +92,7 @@ public class SwiftMethod extends AbstractMethod {
         String endpoint = context.getStorageUrl();
 
         if( endpoint == null ) {
-            throw new CloudException("No storage endpoint exists for " + context.getMyRegion());
+            throw new InternalException("No storage endpoint exists for " + context.getMyRegion());
         }
         try {
             String response = getString(context.getAuthToken(), endpoint, bucket == null ? "/" : "/" + bucket);
@@ -134,7 +134,7 @@ public class SwiftMethod extends AbstractMethod {
         String endpoint = context.getStorageUrl();
 
         if( endpoint == null ) {
-            throw new CloudException("No storage endpoint exists for " + context.getMyRegion());
+            throw new InternalException("No storage endpoint exists for " + context.getMyRegion());
         }
         try {
             return getStream(context.getAuthToken(), endpoint, "/" + bucket + "/" + object);
@@ -157,7 +157,7 @@ public class SwiftMethod extends AbstractMethod {
         String endpoint = context.getStorageUrl();
 
         if( endpoint == null ) {
-            throw new CloudException("No storage endpoint exists for " + context.getMyRegion());
+            throw new InternalException("No storage endpoint exists for " + context.getMyRegion());
         }
         try {
             return head(context.getAuthToken(), endpoint, "/" + bucket);
@@ -179,7 +179,7 @@ public class SwiftMethod extends AbstractMethod {
         String endpoint = context.getStorageUrl();
 
         if( endpoint == null ) {
-            throw new CloudException("No storage endpoint exists for " + context.getMyRegion());
+            throw new InternalException("No storage endpoint exists for " + context.getMyRegion());
         }
         try {
             return head(context.getAuthToken(), endpoint, "/" + bucket + "/" + object);
@@ -201,7 +201,7 @@ public class SwiftMethod extends AbstractMethod {
         String endpoint = context.getStorageUrl();
 
         if( endpoint == null ) {
-            throw new CloudException("No storage endpoint exists for " + context.getMyRegion());
+            throw new InternalException("No storage endpoint exists for " + context.getMyRegion());
         }
         try {
             putString(context.getAuthToken(), endpoint, "/" + bucket, null);
@@ -223,7 +223,7 @@ public class SwiftMethod extends AbstractMethod {
         String endpoint = context.getStorageUrl();
 
         if( endpoint == null ) {
-            throw new CloudException("No storage endpoint exists for " + context.getMyRegion());
+            throw new InternalException("No storage endpoint exists for " + context.getMyRegion());
         }
         try {
             putStream(context.getAuthToken(), endpoint, "/" + bucket + "/" + object, md5Hash, payload);
@@ -244,7 +244,7 @@ public class SwiftMethod extends AbstractMethod {
     	AuthenticationContext context = provider.getAuthenticationContext();
     	String endpoint = context.getStorageUrl();
     	if( endpoint == null ) {
-    		throw new CloudException("No storage endpoint exists for " + context.getMyRegion());
+    		throw new InternalException("No storage endpoint exists for " + context.getMyRegion());
     	}
     	try {
     		HashMap<String,String> customHeaders = new HashMap<String,String>();

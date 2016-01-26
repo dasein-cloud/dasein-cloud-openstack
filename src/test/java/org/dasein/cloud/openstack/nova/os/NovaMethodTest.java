@@ -410,7 +410,6 @@ public class NovaMethodTest {
 
         }
         catch( InternalException | CloudException e) {
-            e.printStackTrace();
             fail("Test failed " + e.getMessage());
         }
     }

@@ -21,12 +21,7 @@ package org.dasein.cloud.openstack.nova.os.network;
 
 import org.apache.http.HttpStatus;
 import org.apache.log4j.Logger;
-import org.dasein.cloud.CloudErrorType;
-import org.dasein.cloud.CloudException;
-import org.dasein.cloud.InternalException;
-import org.dasein.cloud.OperationNotSupportedException;
-import org.dasein.cloud.Requirement;
-import org.dasein.cloud.ResourceStatus;
+import org.dasein.cloud.*;
 import org.dasein.cloud.network.AbstractFirewallSupport;
 import org.dasein.cloud.network.Direction;
 import org.dasein.cloud.network.Firewall;
@@ -49,11 +44,7 @@ import org.json.JSONObject;
 import javax.annotation.Nonnegative;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.Locale;
+import java.util.*;
 
 /**
  * Support for OpenStack security groups.
@@ -63,7 +54,7 @@ import java.util.Locale;
  * @version 2012.04.1 Added some intelligence around features Rackspace does not support
  * @version 2013.04 Added API tracing
  */
-public class NovaSecurityGroup extends AbstractFirewallSupport {
+public class NovaSecurityGroup extends AbstractFirewallSupport<NovaOpenStack> {
     static private final Logger logger = NovaOpenStack.getLogger(NovaSecurityGroup.class, "std");
 
     NovaSecurityGroup(NovaOpenStack cloud) {
@@ -71,7 +62,7 @@ public class NovaSecurityGroup extends AbstractFirewallSupport {
     }
 
     private @Nonnull String getTenantId() throws CloudException, InternalException {
-        return ((NovaOpenStack)getProvider()).getContext().getAccountNumber();
+        return getContext().getAccountNumber();
     }
 
     @Override
@@ -85,9 +76,9 @@ public class NovaSecurityGroup extends AbstractFirewallSupport {
                 throw new OperationNotSupportedException(getProvider().getCloudName() + " dies not support deny rules.") ;
             }
 
-            HashMap<String,Object> wrapper = new HashMap<String,Object>();
-            HashMap<String,Object> json = new HashMap<String,Object>();
-            NovaMethod method = new NovaMethod((NovaOpenStack)getProvider());
+            Map<String,Object> wrapper = new HashMap<String,Object>();
+            Map<String,Object> json = new HashMap<String,Object>();
+            NovaMethod method = new NovaMethod(getProvider());
 
             json.put("ip_protocol", protocol.name().toLowerCase());
             json.put("from_port", beginPort);
@@ -109,7 +100,7 @@ public class NovaSecurityGroup extends AbstractFirewallSupport {
                     Firewall targetGroup = getFirewall(sourceEndpoint.getProviderFirewallId());
 
                     if( targetGroup == null ) {
-                        throw new CloudException("No such source endpoint firewall: " + sourceEndpoint.getProviderFirewallId());
+                        throw new ResourceNotFoundException("No such source endpoint firewall: " + sourceEndpoint.getProviderFirewallId());
                     }
 
                     json.put("group_id",  targetGroup.getProviderFirewallId());
@@ -128,11 +119,11 @@ public class NovaSecurityGroup extends AbstractFirewallSupport {
                 }
                 catch( JSONException e ) {
                     logger.error("Invalid JSON returned from rule creation: " + e.getMessage());
-                    throw new CloudException(e);
+                    throw new CommunicationException("Invalid JSON returned from rule creation: " + e.getMessage(), e);
                 }
             }
             logger.error("authorize(): No firewall rule was created by the create attempt, and no error was returned");
-            throw new CloudException("No firewall rule was created");
+            throw new GeneralCloudException("No firewall rule was created", CloudErrorType.GENERAL);
         }
         finally {
             APITrace.end();
@@ -146,8 +137,8 @@ public class NovaSecurityGroup extends AbstractFirewallSupport {
             if( options.getProviderVlanId() != null ) {
                 throw new OperationNotSupportedException("Creating IP addresses in VLANs is not supported");
             }
-            HashMap<String,Object> wrapper = new HashMap<String,Object>();
-            HashMap<String,Object> json = new HashMap<String,Object>();
+            Map<String,Object> wrapper = new HashMap<String,Object>();
+            Map<String,Object> json = new HashMap<String,Object>();
             NovaMethod method = new NovaMethod((NovaOpenStack)getProvider());
 
             json.put("name", options.getName());
@@ -170,12 +161,11 @@ public class NovaSecurityGroup extends AbstractFirewallSupport {
                 }
                 catch( JSONException e ) {
                     logger.error("create(): Unable to understand create response: " + e.getMessage());
-                    e.printStackTrace();
-                    throw new CloudException(e);
+                    throw new CommunicationException("Invalid response", e);
                 }
             }
             logger.error("create(): No firewall was created by the create attempt, and no error was returned");
-            throw new CloudException("No firewall was created");
+            throw new GeneralCloudException("No firewall was created", CloudErrorType.GENERAL);
 
         }
         finally {
@@ -187,7 +177,7 @@ public class NovaSecurityGroup extends AbstractFirewallSupport {
     public void delete(@Nonnull String firewallId) throws InternalException, CloudException {
         APITrace.begin(getProvider(), "Firewall.delete");
         try {
-            NovaMethod method = new NovaMethod((NovaOpenStack)getProvider());
+            NovaMethod method = new NovaMethod(getProvider());
             long timeout = System.currentTimeMillis() + CalendarWrapper.HOUR;
 
             do {
@@ -214,7 +204,7 @@ public class NovaSecurityGroup extends AbstractFirewallSupport {
     @Override
     public FirewallCapabilities getCapabilities() throws CloudException, InternalException {
         if( capabilities == null ) {
-            capabilities = new SecurityGroupCapabilities((NovaOpenStack)getProvider());
+            capabilities = new SecurityGroupCapabilities(getProvider());
         }
         return capabilities;
     }
@@ -223,7 +213,7 @@ public class NovaSecurityGroup extends AbstractFirewallSupport {
     public @Nullable Firewall getFirewall(@Nonnull String firewallId) throws InternalException, CloudException {
         APITrace.begin(getProvider(), "Firewall.getFirewall");
         try {
-            NovaMethod method = new NovaMethod((NovaOpenStack)getProvider());
+            NovaMethod method = new NovaMethod(getProvider());
             JSONObject ob = method.getServers("/os-security-groups", firewallId, false);
 
             if( ob == null ) {
@@ -241,7 +231,7 @@ public class NovaSecurityGroup extends AbstractFirewallSupport {
             }
             catch( JSONException e ) {
                 logger.error("getRule(): Unable to identify expected values in JSON: " + e.getMessage());
-                throw new CloudException(CloudErrorType.COMMUNICATION, 200, "invalidJson", "Missing JSON element for security group");
+                throw new CommunicationException("Missing JSON element for security group", e);
             }
             return null;
         }
@@ -260,7 +250,7 @@ public class NovaSecurityGroup extends AbstractFirewallSupport {
         APITrace.begin(getProvider(), "Firewall.getRules");
         try {
 
-            NovaMethod method = new NovaMethod((NovaOpenStack)getProvider());
+            NovaMethod method = new NovaMethod(getProvider());
             JSONObject ob = method.getServers("/os-security-groups", firewallId, false);
 
             if( ob == null ) {
@@ -373,7 +363,7 @@ public class NovaSecurityGroup extends AbstractFirewallSupport {
             }
             catch( JSONException e ) {
                 logger.error("getRules(): Unable to identify expected values in JSON: " + e.getMessage());
-                throw new CloudException(CloudErrorType.COMMUNICATION, 200, "invalidJson", "Missing JSON element for security groups");
+                throw new CommunicationException("Missing JSON element for security groups");
             }
             return Collections.emptyList();
         }
@@ -385,7 +375,7 @@ public class NovaSecurityGroup extends AbstractFirewallSupport {
     private boolean verifySupport() throws InternalException, CloudException {
         APITrace.begin(getProvider(), "Firewall.verifySupport");
         try {
-            NovaMethod method = new NovaMethod((NovaOpenStack)getProvider());
+            NovaMethod method = new NovaMethod(getProvider());
 
             try {
                 method.getServers("/os-security-groups", null, false);
@@ -408,10 +398,11 @@ public class NovaSecurityGroup extends AbstractFirewallSupport {
     public boolean isSubscribed() throws InternalException, CloudException {
         APITrace.begin(getProvider(), "Firewall.isSubscribed");
         try {
-            if( ((NovaOpenStack)getProvider()).getMajorVersion() > 1 && ((NovaOpenStack)getProvider()).getComputeServices().getVirtualMachineSupport().isSubscribed() ) {
+            if( getProvider().getMajorVersion() > 1 && getProvider().getComputeServices().getVirtualMachineSupport().isSubscribed() ) {
                 return verifySupport();
             }
-            if( ((NovaOpenStack)getProvider()).getMajorVersion() == 1 && ((NovaOpenStack)getProvider()).getMinorVersion() >= 1  &&  ((NovaOpenStack)getProvider()).getComputeServices().getVirtualMachineSupport().isSubscribed() ) {
+            if( getProvider().getMajorVersion() == 1 && getProvider().getMinorVersion() >= 1
+                    && getProvider().getComputeServices().getVirtualMachineSupport().isSubscribed() ) {
                 return verifySupport();
             }
             return false;
@@ -425,9 +416,9 @@ public class NovaSecurityGroup extends AbstractFirewallSupport {
     public @Nonnull Collection<Firewall> list() throws InternalException, CloudException {
         APITrace.begin(getProvider(), "Firewall.list");
         try {
-            NovaMethod method = new NovaMethod((NovaOpenStack)getProvider());
+            NovaMethod method = new NovaMethod(getProvider());
             JSONObject ob = method.getServers("/os-security-groups", null, false);
-            ArrayList<Firewall> firewalls = new ArrayList<Firewall>();
+            List<Firewall> firewalls = new ArrayList<Firewall>();
 
             try {
                 if( ob != null && ob.has("security_groups") ) {
@@ -444,8 +435,8 @@ public class NovaSecurityGroup extends AbstractFirewallSupport {
                 }
             }
             catch( JSONException e ) {
-                logger.error("list(): Unable to identify expected values in JSON: " + e.getMessage());                e.printStackTrace();
-                throw new CloudException(CloudErrorType.COMMUNICATION, 200, "invalidJson", "Missing JSON element for security groups in " + ob.toString());
+                logger.error("list(): Unable to identify expected values in JSON: " + e.getMessage());
+                throw new CommunicationException("Missing JSON element for security groups in " + ob.toString(), e);
             }
             return firewalls;
         }
@@ -458,9 +449,9 @@ public class NovaSecurityGroup extends AbstractFirewallSupport {
     public @Nonnull Iterable<ResourceStatus> listFirewallStatus() throws InternalException, CloudException {
         APITrace.begin(getProvider(), "Firewall.listFirewallStatus");
         try {
-            NovaMethod method = new NovaMethod((NovaOpenStack)getProvider());
+            NovaMethod method = new NovaMethod(getProvider());
             JSONObject ob = method.getServers("/os-security-groups", null, false);
-            ArrayList<ResourceStatus> firewalls = new ArrayList<ResourceStatus>();
+            List<ResourceStatus> firewalls = new ArrayList<ResourceStatus>();
 
             try {
                 if( ob != null && ob.has("security_groups") ) {
@@ -477,13 +468,13 @@ public class NovaSecurityGroup extends AbstractFirewallSupport {
                             }
                         }
                         catch( JSONException e ) {
-                            throw new CloudException("Invalid JSON from cloud: " + e.getMessage());
+                            throw new CommunicationException("Invalid JSON from cloud: " + e.getMessage(), e);
                         }
                     }
                 }
             }
             catch( JSONException e ) {
-                throw new CloudException(CloudErrorType.COMMUNICATION, 200, "invalidJson", "Missing JSON element for security groups in " + ob.toString());
+                throw new CommunicationException("Missing JSON element for security groups in " + ob.toString(), e);
             }
             return firewalls;
         }
@@ -493,46 +484,10 @@ public class NovaSecurityGroup extends AbstractFirewallSupport {
     }
 
     @Override
-    public @Nonnull Iterable<RuleTargetType> listSupportedDestinationTypes(boolean inVlan) throws InternalException, CloudException {
-        if( inVlan ) {
-            return Collections.emptyList();
-        }
-        return Collections.singletonList(RuleTargetType.GLOBAL);
-    }
-
-    @Override
-    public @Nonnull Iterable<Direction> listSupportedDirections(boolean inVlan) throws InternalException, CloudException {
-        if( inVlan ) {
-            return Collections.emptyList();
-        }
-        return Collections.singletonList(Direction.INGRESS);
-    }
-
-    @Override
-    public @Nonnull Iterable<Permission> listSupportedPermissions(boolean inVlan) throws InternalException, CloudException {
-        if( inVlan ) {
-            return Collections.emptyList();
-        }
-        return Collections.singletonList(Permission.ALLOW);
-    }
-
-    @Override
-    public @Nonnull Iterable<RuleTargetType> listSupportedSourceTypes(boolean inVlan) throws InternalException, CloudException {
-        if( inVlan ) {
-            return Collections.emptyList();
-        }
-        ArrayList<RuleTargetType> list= new ArrayList<RuleTargetType>();
-
-        list.add(RuleTargetType.CIDR);
-        list.add(RuleTargetType.GLOBAL);
-        return list;
-    }
-
-    @Override
     public void revoke(@Nonnull String providerFirewallRuleId) throws InternalException, CloudException {
         APITrace.begin(getProvider(), "Firewall.revoke");
         try {
-            NovaMethod method = new NovaMethod((NovaOpenStack)getProvider());
+            NovaMethod method = new NovaMethod(getProvider());
             long timeout = System.currentTimeMillis() + CalendarWrapper.HOUR;
 
             do {
@@ -650,18 +605,13 @@ public class NovaSecurityGroup extends AbstractFirewallSupport {
                 }
             }
             if( targetRule == null ) {
-                throw new CloudException("No such firewall rule");
+                throw new ResourceNotFoundException("No such firewall rule");
             }
             revoke(targetRule.getProviderRuleId());
         }
         finally {
             APITrace.end();
         }
-    }
-
-    @Override
-    public boolean supportsFirewallSources() throws CloudException, InternalException {
-        return true;
     }
 
     private @Nullable Firewall toFirewall(@Nonnull JSONObject json) throws CloudException, InternalException {

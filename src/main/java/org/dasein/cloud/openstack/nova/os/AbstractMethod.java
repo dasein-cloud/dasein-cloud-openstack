@@ -63,11 +63,7 @@ import org.apache.http.params.HttpProtocolParams;
 import org.apache.http.protocol.HTTP;
 import org.apache.http.util.EntityUtils;
 import org.apache.log4j.Logger;
-import org.dasein.cloud.CloudErrorType;
-import org.dasein.cloud.CloudException;
-import org.dasein.cloud.ContextRequirements;
-import org.dasein.cloud.InternalException;
-import org.dasein.cloud.ProviderContext;
+import org.dasein.cloud.*;
 import org.dasein.cloud.openstack.nova.os.ext.hp.db.HPRDBMS;
 import org.dasein.cloud.util.APITrace;
 import org.dasein.cloud.util.Cache;
@@ -94,12 +90,12 @@ public abstract class AbstractMethod {
             ProviderContext ctx = provider.getContext();
             
             if( ctx == null ) {
-                throw new CloudException("Unable to authenticate due to lack of context");
+                throw new InternalException("Unable to authenticate due to lack of context");
             }
-            String endpoint = ctx.getEndpoint();
+            String endpoint = ctx.getCloud().getEndpoint();
             
             if( endpoint == null ) {
-                throw new CloudException("No authentication endpoint");
+                throw new InternalException("No authentication endpoint");
             }
             AuthenticationContext auth;
             
@@ -170,8 +166,7 @@ public abstract class AbstractMethod {
             }
             catch( UnsupportedEncodingException e ) {
                 std.error("authenticateKeystone(): Unable to read access credentials: " + e.getMessage());
-                e.printStackTrace();
-                throw new InternalException(e);
+                throw new InternalException("Unable to read access credentials", e);
             }
 
             if( std.isInfoEnabled() ) {
@@ -247,7 +242,7 @@ public abstract class AbstractMethod {
                 post.setEntity(new StringEntity(payload == null ? "" : payload, "application/json", "UTF-8"));
             }
             catch( UnsupportedEncodingException e ) {
-                throw new InternalException(e);
+                throw new InternalException("Unable to encode", e);
             }
             /*try { wire.debug(EntityUtils.toString(post.getEntity())); }
             catch( IOException ignore ) { }*/
@@ -269,8 +264,7 @@ public abstract class AbstractMethod {
             }
             catch( IOException e ) {
                 std.error("I/O error from server communications: " + e.getMessage());
-                e.printStackTrace();
-                throw new InternalException(e);
+                throw new CommunicationException("I/O error from server communications: " + e.getMessage(), e);
             }
             int code = response.getStatusLine().getStatusCode();
 
@@ -297,8 +291,7 @@ public abstract class AbstractMethod {
                 }
                 catch( IOException e ) {
                     std.error("Failed to read response error due to a cloud I/O error: " + e.getMessage());
-                    e.printStackTrace();
-                    throw new CloudException(e);
+                    throw new CommunicationException("Unable to read the response", e);
                 }
                 NovaException.ExceptionItems items = NovaException.parseException(code, data);
                 
@@ -328,8 +321,7 @@ public abstract class AbstractMethod {
                 }
                 catch( IOException e ) {
                     std.error("Failed to read response error due to a cloud I/O error: " + e.getMessage());
-                    e.printStackTrace();
-                    throw new CloudException(e);
+                    throw new CommunicationException(e.getMessage(), e);
                 }
                 if( data != null && !data.trim().equals("") ) {
                     if( std.isInfoEnabled() ) {
@@ -357,15 +349,14 @@ public abstract class AbstractMethod {
                     }
                     catch( JSONException e ) {
                         std.error("authenticateKeystone(): Invalid response from server: " + e.getMessage());
-                        e.printStackTrace();
-                        throw new CloudException(e);
+                        throw new CommunicationException(e.getMessage(), e);
                     }
                     if( tenantId == null ) {
                         tenantId = account;
                     }
                     if( id != null ) {
-                        HashMap<String,Map<String,String>> services = new HashMap<String,Map<String,String>>();
-                        HashMap<String,Map<String,String>> bestVersion = new HashMap<String,Map<String,String>>();
+                        Map<String,Map<String,String>> services = new HashMap<String,Map<String,String>>();
+                        Map<String,Map<String,String>> bestVersion = new HashMap<String,Map<String,String>>();
                         String myRegionId = provider.getContext().getRegionId();
 
                         if( std.isDebugEnabled() ) {
@@ -470,8 +461,7 @@ public abstract class AbstractMethod {
                             }
                             catch( JSONException e ) {
                                 std.error("authenticateKeystone(): Failed to read JSON from server: " + e.getMessage());
-                                e.printStackTrace();
-                                throw new CloudException(e);
+                                throw new CommunicationException(e.getMessage(), e);
                             }
                         }
                         if( std.isDebugEnabled() ) {
@@ -488,7 +478,7 @@ public abstract class AbstractMethod {
                     }
                 }
             }
-            throw new CloudException("No authentication tokens were provided");
+            throw new InternalException("No authentication tokens were provided");
         }
         finally {
             if (client != null) {
@@ -527,8 +517,7 @@ public abstract class AbstractMethod {
             }
             catch( UnsupportedEncodingException e ) {
                 std.error("authenticateKeystone(): Unable to read access credentials: " + e.getMessage());
-                e.printStackTrace();
-                throw new InternalException(e);
+                throw new InternalException("Unable to read access credentials", e);
             }
             String[] endpoints;
             
@@ -581,8 +570,7 @@ public abstract class AbstractMethod {
                     }
                     catch( IOException e ) {
                         std.error("I/O error from server communications: " + e.getMessage());
-                        e.printStackTrace();
-                        throw new InternalException(e);
+                        throw new CommunicationException("I/O error from server communications: " + e.getMessage(), e);
                     }
                     int code = response.getStatusLine().getStatusCode();
 
@@ -607,8 +595,7 @@ public abstract class AbstractMethod {
                         }
                         catch( IOException e ) {
                             std.error("Failed to read response error due to a cloud I/O error: " + e.getMessage());
-                            e.printStackTrace();
-                            throw new CloudException(e);
+                            throw new CommunicationException("Failed to read response error due to a cloud I/O error: " + e.getMessage(), e);
                         }
                         if( code == HttpStatus.SC_INTERNAL_SERVER_ERROR && data.contains("<faultstring>") ) {
                             return null;
@@ -696,7 +683,7 @@ public abstract class AbstractMethod {
             }
             if( authToken == null ) {
                 std.warn("authenticateStandard(): No authentication token in response");
-                throw new CloudException("No authentication token in cloud response");
+                throw new AuthenticationException("No authentication token in cloud response");
             }
             return new AuthenticationContext(myRegion, authToken, tenantId, services, null);
         }
@@ -730,8 +717,7 @@ public abstract class AbstractMethod {
         }
         catch( UnsupportedEncodingException e ) {
             std.error("authenticateKeystone(): Unable to read access credentials: " + e.getMessage());
-            e.printStackTrace();
-            throw new InternalException(e);
+            throw new InternalException("Unable to read access credentials", e);
         }
         String tenantId = accountNum;
         String authToken = null, storageToken = null;
@@ -788,8 +774,7 @@ public abstract class AbstractMethod {
             }
             catch( IOException e ) {
                 std.error("I/O error from server communications: " + e.getMessage());
-                e.printStackTrace();
-                throw new InternalException(e);
+                throw new CommunicationException("I/O error from server communications: " + e.getMessage(), e);
             }
             int code = response.getStatusLine().getStatusCode();
 
@@ -814,8 +799,7 @@ public abstract class AbstractMethod {
                 }
                 catch( IOException e ) {
                     std.error("Failed to read response error due to a cloud I/O error: " + e.getMessage());
-                    e.printStackTrace();
-                    throw new CloudException(e);
+                    throw new CommunicationException("Failed to read response error due to a cloud I/O error: " + e.getMessage(), e);
                 }
                 NovaException.ExceptionItems items = NovaException.parseException(code, data);
                 
@@ -865,7 +849,7 @@ public abstract class AbstractMethod {
                 }
                 if( authToken == null ) {
                     std.warn("authenticate(): No authentication token in response");
-                    throw new CloudException("No authentication token in cloud response");
+                    throw new CommunicationException("No authentication token in cloud response");
                 }
                 return new AuthenticationContext(thisRegion, authToken, tenantId, services, storageToken);
             }
@@ -889,7 +873,7 @@ public abstract class AbstractMethod {
         String endpoint = context.getServiceUrl(service);
 
         if( endpoint == null ) {
-            throw new CloudException("No " + service + " endpoint exists");
+            throw new InternalException("No " + service + " endpoint exists");
         }
         String resourceUri = resource + "/" + resourceId;
         if( suffix != null ) {
@@ -950,8 +934,7 @@ public abstract class AbstractMethod {
             }
             catch( IOException e ) {
                 std.error("I/O error from server communications: " + e.getMessage());
-                e.printStackTrace();
-                throw new InternalException(e);
+                throw new CommunicationException("I/O error from server communications: " + e.getMessage(), e);
             }
             int code = response.getStatusLine().getStatusCode();
 
@@ -973,8 +956,7 @@ public abstract class AbstractMethod {
                 }
                 catch( IOException e ) {
                     std.error("Failed to read response error due to a cloud I/O error: " + e.getMessage());
-                    e.printStackTrace();
-                    throw new CloudException(e);
+                    throw new CommunicationException("Failed to read response error due to a cloud I/O error: " + e.getMessage(), e);
                 }
                 NovaException.ExceptionItems items = NovaException.parseException(code, data);
                 
@@ -1011,7 +993,7 @@ public abstract class AbstractMethod {
         String endpoint = context.getServiceUrl(service);
 
         if( endpoint == null ) {
-            throw new CloudException("No " + service + " URL has been established in " + context.getMyRegion());
+            throw new InternalException("No " + service + " URL has been established in " + context.getMyRegion());
         }
         String resourceUri = resource;
         if( suffix ) {
@@ -1053,7 +1035,7 @@ public abstract class AbstractMethod {
         String endpoint = context.getServiceUrl(service);
 
         if( endpoint == null ) {
-            throw new CloudException("No " + service + " URL has been established in " + context.getMyRegion());
+            throw new InternalException("No " + service + " URL has been established in " + context.getMyRegion());
         }
         String resourceUri = resource;
         if( resourceId != null ) {
@@ -1077,7 +1059,7 @@ public abstract class AbstractMethod {
                 return new JSONObject(response);
             }
             catch( JSONException e ) {
-                throw new CloudException(CloudErrorType.COMMUNICATION, 200, "invalidJson", response);
+                throw new CommunicationException("Invalid response from server", e);
             }
         }
         catch (NovaException ex) {
@@ -1133,8 +1115,7 @@ public abstract class AbstractMethod {
             }
             catch( IOException e ) {
                 std.error("I/O error from server communications: " + e.getMessage());
-                e.printStackTrace();
-                throw new InternalException(e);
+                throw new CommunicationException("I/O error from server communications: " + e.getMessage(), e);
             }
             int code = response.getStatusLine().getStatusCode();
 
@@ -1160,8 +1141,7 @@ public abstract class AbstractMethod {
                 }
                 catch( IOException e ) {
                     std.error("Failed to read response error due to a cloud I/O error: " + e.getMessage());
-                    e.printStackTrace();
-                    throw new CloudException(e);
+                    throw new CommunicationException("Failed to read response error due to a cloud I/O error: " + e.getMessage(), e);
                 }
                 try {
                     JSONObject err = (new JSONObject(data)).getJSONObject("badRequest");
@@ -1202,8 +1182,7 @@ public abstract class AbstractMethod {
                 }
                 catch( IOException e ) {
                     std.error("Failed to read response error due to a cloud I/O error: " + e.getMessage());
-                    e.printStackTrace();
-                    throw new CloudException(e);
+                    throw new CommunicationException("Failed to read response error due to a cloud I/O error: " + e.getMessage(), e);
                 }
                 NovaException.ExceptionItems items = NovaException.parseException(code, data);
                 
@@ -1236,8 +1215,7 @@ public abstract class AbstractMethod {
                 }
                 catch( IOException e ) {
                     std.error("Failed to read response error due to a cloud I/O error: " + e.getMessage());
-                    e.printStackTrace();
-                    throw new CloudException(e);
+                    throw new CommunicationException("Failed to read response error due to a cloud I/O error: " + e.getMessage(), e);
                 }
                 return data;
             }
@@ -1296,8 +1274,7 @@ public abstract class AbstractMethod {
             }
             catch( IOException e ) {
                 std.error("I/O error from server communications: " + e.getMessage());
-                e.printStackTrace();
-                throw new InternalException(e);
+                throw new CommunicationException("I/O error from server communications: " + e.getMessage(), e);
             }
             int code = response.getStatusLine().getStatusCode();
 
@@ -1322,8 +1299,7 @@ public abstract class AbstractMethod {
                 }
                 catch( IOException e ) {
                     std.error("Failed to read response error due to a cloud I/O error: " + e.getMessage());
-                    e.printStackTrace();
-                    throw new CloudException(e);
+                    throw new CommunicationException("Failed to read response error due to a cloud I/O error: " + e.getMessage(), e);
                 }
                 NovaException.ExceptionItems items = NovaException.parseException(code, data);
                 
@@ -1350,9 +1326,9 @@ public abstract class AbstractMethod {
                 catch( IOException e ) {
                     std.error("getStream(): Failed to read response error due to a cloud I/O error: " + e.getMessage());
                     if( std.isTraceEnabled() ) {
-                        e.printStackTrace();
+                        std.trace("IO error", e);
                     }
-                    throw new CloudException(e);                    
+                    throw new CommunicationException("getStream(): Failed to read response error due to a cloud I/O error: " + e.getMessage(), e);
                 }
                 if( wire.isDebugEnabled() ) {
                     wire.debug("---> Binary Data <---");
@@ -1430,7 +1406,7 @@ public abstract class AbstractMethod {
         String endpoint = context.getServiceUrl(service);
 
         if( endpoint == null ) {
-            throw new CloudException("No " + service + " URL has been established in " + context.getMyRegion());
+            throw new InternalException("No " + service + " URL has been established in " + context.getMyRegion());
         }
         String resourceUri = resource;
         if( resource == null && resourceId == null ) {
@@ -1496,8 +1472,7 @@ public abstract class AbstractMethod {
             }
             catch( IOException e ) {
                 std.error("I/O error from server communications: " + e.getMessage());
-                e.printStackTrace();
-                throw new InternalException(e);
+                throw new CommunicationException("I/O error from server communications: " + e.getMessage(), e);
             }
             int code = response.getStatusLine().getStatusCode();
 
@@ -1522,8 +1497,7 @@ public abstract class AbstractMethod {
                 }
                 catch( IOException e ) {
                     std.error("Failed to read response error due to a cloud I/O error: " + e.getMessage());
-                    e.printStackTrace();
-                    throw new CloudException(e);
+                    throw new CommunicationException("Failed to read response error due to a cloud I/O error: " + e.getMessage(), e);
                 }
                 NovaException.ExceptionItems items = NovaException.parseException(code, data);
                 
@@ -1559,7 +1533,7 @@ public abstract class AbstractMethod {
         String endpoint = context.getServiceUrl(service);
 
         if( endpoint == null ) {
-            throw new CloudException("No " + service + " has been established in " + context.getMyRegion());
+            throw new InternalException("No " + service + " has been established in " + context.getMyRegion());
         }
         if( resourceId == null ) {
             throw new InternalException("No container was specified");
@@ -1628,8 +1602,7 @@ public abstract class AbstractMethod {
             }
             catch( IOException e ) {
                 std.error("I/O error from server communications: " + e.getMessage());
-                e.printStackTrace();
-                throw new InternalException(e);
+                throw new CommunicationException("I/O error from server communications: " + e.getMessage(), e);
             }
             int code = response.getStatusLine().getStatusCode();
 
@@ -1651,8 +1624,7 @@ public abstract class AbstractMethod {
                 }
                 catch( IOException e ) {
                     std.error("Failed to read response error due to a cloud I/O error: " + e.getMessage());
-                    e.printStackTrace();
-                    throw new CloudException(e);
+                    throw new CommunicationException("Failed to read response error due to a cloud I/O error: " + e.getMessage(), e);
                 }
                 try {
                     if( data != null ) {
@@ -1664,7 +1636,7 @@ public abstract class AbstractMethod {
                                 int min = ob.getInt("retryAfter");
 
                                 if( min < 1 ) {
-                                    throw new CloudException(CloudErrorType.CAPACITY, 413, "Over Limit", ob.has("message") ? ob.getString("message") : "Over Limit");
+                                    throw new GeneralCloudException(CloudErrorType.CAPACITY, 413, "Over Limit", ob.has("message") ? ob.getString("message") : "Over Limit");
                                 }
                                 try { Thread.sleep(CalendarWrapper.MINUTE * min); }
                                 catch( InterruptedException ignore ) { }
@@ -1674,7 +1646,7 @@ public abstract class AbstractMethod {
                     }
                 }
                 catch( JSONException e ) {
-                    throw new CloudException(e);
+                    throw new CommunicationException("Invalid response", e);
                 }
             }
 
@@ -1695,8 +1667,7 @@ public abstract class AbstractMethod {
                 }
                 catch( IOException e ) {
                     std.error("Failed to read response error due to a cloud I/O error: " + e.getMessage());
-                    e.printStackTrace();
-                    throw new CloudException(e);
+                    throw new CommunicationException("Failed to read response error due to a cloud I/O error: " + e.getMessage(), e);
                 }
                 NovaException.ExceptionItems items = NovaException.parseException(code, data);
                 
@@ -1727,8 +1698,7 @@ public abstract class AbstractMethod {
                     }
                     catch( IOException e ) {
                         std.error("Failed to read response due to a cloud I/O error: " + e.getMessage());
-                        e.printStackTrace();
-                        throw new CloudException(e);
+                        throw new CommunicationException("Failed to read response due to a cloud I/O error: " + e.getMessage(), e);
                     }
                     if( data != null && !data.trim().equals("") ) {
                         return data;
@@ -1756,7 +1726,7 @@ public abstract class AbstractMethod {
         String endpoint = context.getServiceUrl(service);
         
         if( endpoint == null ) {
-            throw new CloudException("No " + service + " endpoint exists");
+            throw new InternalException("No " + service + " endpoint exists");
         }
         try {
             String response = postString(context.getAuthToken(), endpoint, resource + "/" + resourceId + "/" + extra, body.toString());
@@ -1768,7 +1738,7 @@ public abstract class AbstractMethod {
                 return new JSONObject(response);
             }
             catch( JSONException e ) {
-                throw new CloudException(CloudErrorType.COMMUNICATION, 200, "invalidJson", response);
+                throw new CommunicationException("Invalid response", e);
             }
         }
         catch (NovaException ex) {
@@ -1793,7 +1763,7 @@ public abstract class AbstractMethod {
         String endpoint = context.getServiceUrl(service);
 
         if( endpoint == null ) {
-            throw new CloudException("No " + service + " endpoint exists");
+            throw new InternalException("No " + service + " endpoint exists");
         }
         try {
             String response = postString(context.getAuthToken(), endpoint, resourceUri, body.toString());
@@ -1804,7 +1774,7 @@ public abstract class AbstractMethod {
                 return new JSONObject(response);
             }
             catch( JSONException e ) {
-                throw new CloudException(CloudErrorType.COMMUNICATION, 200, "invalidJson", response);
+                throw new CommunicationException("Invalid response", e);
             }
         }
         catch (NovaException ex) {
@@ -1850,7 +1820,7 @@ public abstract class AbstractMethod {
                     post.setEntity(new StringEntity(payload == null ? "" : payload, "application/json", "UTF-8"));
                 }
                 catch( UnsupportedEncodingException e ) {
-                    throw new InternalException(e);
+                    throw new InternalException("Unable to encode", e);
                 }
                 try { wire.debug(EntityUtils.toString(post.getEntity())); }
                 catch( IOException ignore ) { }
@@ -1872,8 +1842,7 @@ public abstract class AbstractMethod {
             }
             catch( IOException e ) {
                 std.error("I/O error from server communications: " + e.getMessage());
-                e.printStackTrace();
-                throw new InternalException("Communication error while reading from cloud endpoint", e);
+                throw new CommunicationException("Communication error while reading from cloud endpoint", e);
             }
             int code = response.getStatusLine().getStatusCode();
 
@@ -1894,8 +1863,7 @@ public abstract class AbstractMethod {
                 }
                 catch( IOException e ) {
                     std.error("Failed to read response error due to a cloud I/O error: " + e.getMessage());
-                    e.printStackTrace();
-                    throw new CloudException(e);
+                    throw new CommunicationException("Failed to read response error due to a cloud I/O error: " + e.getMessage(), e);
                 }
                 try {
                     if( data != null ) {
@@ -1905,7 +1873,7 @@ public abstract class AbstractMethod {
                             int min = ob.optInt("retryAfter", 0);
 
                             if( min < 1 ) {
-                                throw new CloudException(CloudErrorType.CAPACITY, 413, "Over Limit", ob.has("message") ? ob.getString("message") : "Over Limit");
+                                throw new GeneralCloudException(CloudErrorType.CAPACITY, 413, "Over Limit", ob.has("message") ? ob.getString("message") : "Over Limit");
                             }
                             try { Thread.sleep(CalendarWrapper.MINUTE * min); }
                             catch( InterruptedException ignore ) { }
@@ -1914,7 +1882,7 @@ public abstract class AbstractMethod {
                     }
                 }
                 catch( JSONException e ) {
-                    throw new CloudException(e);
+                    throw new CommunicationException("Invalid response", e);
                 }
             }
             if( code != HttpStatus.SC_OK && code != HttpStatus.SC_ACCEPTED && code != HttpStatus.SC_NO_CONTENT && code != HttpStatus.SC_CREATED ) {
@@ -1934,8 +1902,7 @@ public abstract class AbstractMethod {
                 }
                 catch( IOException e ) {
                     std.error("Failed to read response error due to a cloud I/O error: " + e.getMessage());
-                    e.printStackTrace();
-                    throw new CloudException(e);
+                    throw new CommunicationException("Failed to read response error due to a cloud I/O error: " + e.getMessage(), e);
                 }
                 NovaException.ExceptionItems items = NovaException.parseException(code, data);
 
@@ -1966,8 +1933,7 @@ public abstract class AbstractMethod {
                     }
                     catch( IOException e ) {
                         std.error("Failed to read response due to a cloud I/O error: " + e.getMessage());
-                        e.printStackTrace();
-                        throw new CloudException(e);
+                        throw new CommunicationException("Failed to read response due to a cloud I/O error: " + e.getMessage(), e);
                     }
                     if( data != null && !data.trim().equals("") ) {
                         return data;
@@ -2045,8 +2011,7 @@ public abstract class AbstractMethod {
             }
             catch( IOException e ) {
                 std.error("I/O error from server communications: " + e.getMessage());
-                e.printStackTrace();
-                throw new InternalException(e);
+                throw new CommunicationException("I/O error from server communications: " + e.getMessage());
             }
             int code = response.getStatusLine().getStatusCode();
 
@@ -2060,7 +2025,7 @@ public abstract class AbstractMethod {
                 }
             }
             if( responseHash != null && md5Hash != null && !responseHash.equals(md5Hash) ) {
-                throw new CloudException("MD5 hash values do not match, probably data corruption");
+                throw new CommunicationException("MD5 hash values do not match, probably data corruption");
             }
             if( code != HttpStatus.SC_ACCEPTED && code != HttpStatus.SC_NO_CONTENT ) {
                 std.error("postStream(): Expected ACCEPTED or NO CONTENT for POST request, got " + code);
@@ -2079,8 +2044,7 @@ public abstract class AbstractMethod {
                 }
                 catch( IOException e ) {
                     std.error("Failed to read response error due to a cloud I/O error: " + e.getMessage());
-                    e.printStackTrace();
-                    throw new CloudException(e);
+                    throw new CommunicationException("Failed to read response error due to a cloud I/O error: " + e.getMessage());
                 }
                 NovaException.ExceptionItems items = NovaException.parseException(code, data);
 
@@ -2112,8 +2076,7 @@ public abstract class AbstractMethod {
                     }
                     catch( IOException e ) {
                         std.error("Failed to read response due to a cloud I/O error: " + e.getMessage());
-                        e.printStackTrace();
-                        throw new CloudException(e);
+                        throw new CommunicationException("Failed to read response due to a cloud I/O error: " + e.getMessage(), e);
                     }
                     if( data != null && !data.trim().equals("") ) {
                         return data;
@@ -2141,7 +2104,7 @@ public abstract class AbstractMethod {
         String endpoint = context.getServiceUrl(service);
 
         if( endpoint == null ) {
-            throw new CloudException("No " + service + " has been established in " + context.getMyRegion());
+            throw new InternalException("No " + service + " has been established in " + context.getMyRegion());
         }
         String resourceUri = resource;
         if( resource == null && resourceId == null ) {
@@ -2217,8 +2180,7 @@ public abstract class AbstractMethod {
             }
             catch( IOException e ) {
                 std.error("I/O error from server communications: " + e.getMessage());
-                e.printStackTrace();
-                throw new InternalException(e);
+                throw new CommunicationException("I/O error from server communications: " + e.getMessage(), e);
             }
             int code = response.getStatusLine().getStatusCode();
 
@@ -2241,8 +2203,7 @@ public abstract class AbstractMethod {
                 }
                 catch( IOException e ) {
                     std.error("Failed to read response error due to a cloud I/O error: " + e.getMessage());
-                    e.printStackTrace();
-                    throw new CloudException(e);
+                    throw new CommunicationException("Failed to read response error due to a cloud I/O error: " + e.getMessage(), e);
                 }
                 NovaException.ExceptionItems items = NovaException.parseException(code, data);
                 
@@ -2273,8 +2234,7 @@ public abstract class AbstractMethod {
                     }
                     catch( IOException e ) {
                         std.error("Failed to read response error due to a cloud I/O error: " + e.getMessage());
-                        e.printStackTrace();
-                        throw new CloudException(e);
+                        throw new CommunicationException("Failed to read response error due to a cloud I/O error: " + e.getMessage(), e);
                     }
                     if( data != null && !data.trim().equals("") ) {
                         return data;
@@ -2305,7 +2265,7 @@ public abstract class AbstractMethod {
     	}
     	String endpoint = context.getServiceUrl(service);
     	if( endpoint == null ) {
-    		throw new CloudException("No " + service + " endpoint exists");
+    		throw new InternalException("No " + service + " endpoint exists");
     	}
     	try {
     		String response = putString(context.getAuthToken(), endpoint, resourceUri, body.toString());
@@ -2316,7 +2276,7 @@ public abstract class AbstractMethod {
     			return new JSONObject(response);
     		}
     		catch( JSONException e ) {
-    			throw new CloudException(CloudErrorType.COMMUNICATION, 200, "invalidJson", response);
+    			throw new CommunicationException("Invalid response", e);
     		}
     	}
     	catch (NovaException ex) {
@@ -2363,7 +2323,7 @@ public abstract class AbstractMethod {
                     put.setEntity(new StringEntity(payload == null ? "" : payload, "application/json", "UTF-8"));
                 }
                 catch( UnsupportedEncodingException e ) {
-                    throw new InternalException(e);
+                    throw new InternalException("Unable to encode", e);
                 }
                 try { wire.debug(EntityUtils.toString(put.getEntity())); }
                 catch( IOException ignore ) { }
@@ -2385,8 +2345,7 @@ public abstract class AbstractMethod {
             }
             catch( IOException e ) {
                 std.error("I/O error from server communications: " + e.getMessage());
-                e.printStackTrace();
-                throw new InternalException(e);
+                throw new CommunicationException("I/O error from server communications: " + e.getMessage(), e);
             }
             int code = response.getStatusLine().getStatusCode();
 
@@ -2409,8 +2368,7 @@ public abstract class AbstractMethod {
                 }
                 catch( IOException e ) {
                     std.error("Failed to read response error due to a cloud I/O error: " + e.getMessage());
-                    e.printStackTrace();
-                    throw new CloudException(e);
+                    throw new CommunicationException("Failed to read response error due to a cloud I/O error: " + e.getMessage(), e);
                 }
                 NovaException.ExceptionItems items = NovaException.parseException(code, data);
                 
@@ -2441,8 +2399,7 @@ public abstract class AbstractMethod {
                     }
                     catch( IOException e ) {
                         std.error("Failed to read response error due to a cloud I/O error: " + e.getMessage());
-                        e.printStackTrace();
-                        throw new CloudException(e);
+                        throw new CommunicationException("Failed to read response error due to a cloud I/O error: " + e.getMessage(), e);
                     }
                     if( data != null && !data.trim().equals("") ) {
                         return data;
@@ -2513,8 +2470,7 @@ public abstract class AbstractMethod {
             }
             catch( IOException e ) {
                 std.error("I/O error from server communications: " + e.getMessage());
-                e.printStackTrace();
-                throw new InternalException(e);
+                throw new CommunicationException("I/O error from server communications: " + e.getMessage(), e);
             }
             int code = response.getStatusLine().getStatusCode();
 
@@ -2528,7 +2484,7 @@ public abstract class AbstractMethod {
                 }
             }
             if( responseHash != null && md5Hash != null && !responseHash.equals(md5Hash) ) {
-                throw new CloudException("MD5 hash values do not match, probably data corruption");
+                throw new CommunicationException("MD5 hash values do not match, probably data corruption");
             }
             if( code != HttpStatus.SC_CREATED && code != HttpStatus.SC_ACCEPTED && code != HttpStatus.SC_NO_CONTENT ) {
                 std.error("putStream(): Expected CREATED, ACCEPTED, or NO CONTENT for PUT request, got " + code);
@@ -2547,8 +2503,7 @@ public abstract class AbstractMethod {
                 }
                 catch( IOException e ) {
                     std.error("Failed to read response error due to a cloud I/O error: " + e.getMessage());
-                    e.printStackTrace();
-                    throw new CloudException(e);
+                    throw new CommunicationException("Failed to read response error due to a cloud I/O error: " + e.getMessage(), e);
                 }
                 NovaException.ExceptionItems items = NovaException.parseException(code, data);
 
@@ -2579,8 +2534,7 @@ public abstract class AbstractMethod {
                     }
                     catch( IOException e ) {
                         std.error("Failed to read response error due to a cloud I/O error: " + e.getMessage());
-                        e.printStackTrace();
-                        throw new CloudException(e);
+                        throw new CommunicationException("Failed to read response error due to a cloud I/O error: " + e.getMessage(), e);
                     }
                     if( data != null && !data.trim().equals("") ) {
                         return data;
@@ -2677,9 +2631,9 @@ public abstract class AbstractMethod {
             result = major1 - major2;
             if (result==0)
                 result = minor1 - minor2;
-		} catch (Exception e) {
+		} catch (NumberFormatException e) {
 			// Something really stupid showed up in the version string...
-            throw new InternalException(e);
+            throw new InternalException("Unable to parse the version", e);
 		}
         finally {
             if( logger.isTraceEnabled() ) {

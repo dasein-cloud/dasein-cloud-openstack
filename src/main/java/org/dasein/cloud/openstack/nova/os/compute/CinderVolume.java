@@ -20,13 +20,7 @@
 package org.dasein.cloud.openstack.nova.os.compute;
 
 import org.apache.log4j.Logger;
-import org.dasein.cloud.CloudErrorType;
-import org.dasein.cloud.CloudException;
-import org.dasein.cloud.InternalException;
-import org.dasein.cloud.OperationNotSupportedException;
-import org.dasein.cloud.Requirement;
-import org.dasein.cloud.ResourceStatus;
-import org.dasein.cloud.Tag;
+import org.dasein.cloud.*;
 import org.dasein.cloud.compute.AbstractVolumeSupport;
 import org.dasein.cloud.compute.Platform;
 import org.dasein.cloud.compute.Volume;
@@ -50,11 +44,7 @@ import org.json.JSONObject;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.Locale;
-import java.util.Map;
+import java.util.*;
 
 /**
  * Support for the Cinder volumes API in Dasein Cloud.
@@ -63,7 +53,7 @@ import java.util.Map;
  * @version 2012.09.1 copied over from volume extension for HP
  * @since 2012.09.1
  */
-public class CinderVolume extends AbstractVolumeSupport {
+public class CinderVolume extends AbstractVolumeSupport<NovaOpenStack> {
     static private final Logger logger = NovaOpenStack.getLogger(CinderVolume.class, "std");
 
     static public final String SERVICE  = "volume";
@@ -79,7 +69,7 @@ public class CinderVolume extends AbstractVolumeSupport {
     private @Nonnull String getResource() {
         // 20130930 dmayne: seems like hp may have upgraded and uses the same resource
         return "/volumes";
-        // return (((NovaOpenStack)getProvider()).isHP() ? "/os-volumes" : "/volumes");
+        // return ((getProvider()).isHP() ? "/os-volumes" : "/volumes");
     }
 
     private @Nonnull String getTypesResource() {
@@ -90,16 +80,16 @@ public class CinderVolume extends AbstractVolumeSupport {
     public void attach(@Nonnull String volumeId, @Nonnull String toServer, @Nonnull String device) throws InternalException, CloudException {
         APITrace.begin(getProvider(), "Volume.attach");
         try {
-            HashMap<String,Object> attachment = new HashMap<String, Object>();
-            HashMap<String,Object> wrapper = new HashMap<String, Object>();
-            NovaMethod method = new NovaMethod(((NovaOpenStack)getProvider()));
+            Map<String,Object> attachment = new HashMap<>();
+            Map<String,Object> wrapper = new HashMap<>();
+            NovaMethod method = new NovaMethod(getProvider());
 
             attachment.put("volumeId", volumeId);
             attachment.put("device", device);
             wrapper.put("volumeAttachment", attachment);
 
             if( method.postString(NovaServer.SERVICE, "/servers", toServer, getAttachmentsResource(), new JSONObject(wrapper)) == null ) {
-                throw new CloudException("No response from the cloud");
+                throw new CommunicationException("No response from the cloud");
             }
         }
         finally {
@@ -114,9 +104,9 @@ public class CinderVolume extends AbstractVolumeSupport {
         }
         APITrace.begin(getProvider(), "Volume.createVolume");
         try {
-            HashMap<String,Object> wrapper = new HashMap<String,Object>();
-            HashMap<String,Object> json = new HashMap<String,Object>();
-            NovaMethod method = new NovaMethod(((NovaOpenStack)getProvider()));
+            Map<String,Object> wrapper = new HashMap<>();
+            Map<String,Object> json = new HashMap<>();
+            NovaMethod method = new NovaMethod(getProvider());
 
             json.put("display_name", options.getName());
             json.put("display_description", options.getDescription());
@@ -144,8 +134,7 @@ public class CinderVolume extends AbstractVolumeSupport {
             }
             if( options.getVolumeProductId() != null ) {
                 // TODO: cinder was broken and expected the name prior Grizzly
-                    json.put("volume_type", options.getVolumeProductId());
-
+                json.put("volume_type", options.getVolumeProductId());
             }
             wrapper.put("volume", json);
             JSONObject result = method.postString(SERVICE, getResource(), null, new JSONObject(wrapper), true);
@@ -160,14 +149,11 @@ public class CinderVolume extends AbstractVolumeSupport {
                 }
                 catch( JSONException e ) {
                     logger.error("create(): Unable to understand create response: " + e.getMessage());
-                    if( logger.isTraceEnabled() ) {
-                        e.printStackTrace();
-                    }
-                    throw new CloudException(e);
+                    throw new CommunicationException("Unable to understand createVolume response: " + e.getMessage(), e);
                 }
             }
             logger.error("create(): No volume was created by the create attempt, and no error was returned");
-            throw new CloudException("No volume was created");
+            throw new ResourceNotFoundException("No volume was created");
 
         }
         finally {
@@ -182,12 +168,12 @@ public class CinderVolume extends AbstractVolumeSupport {
             Volume volume = getVolume(volumeId);
 
             if( volume == null ) {
-                throw new CloudException("No such volume: " + volumeId);
+                throw new ResourceNotFoundException("No such volume: " + volumeId);
             }
             if( volume.getProviderVirtualMachineId() == null ) {
-                throw new CloudException("Volume " + volumeId + " is not attached");
+                throw new ResourceNotFoundException("Volume " + volumeId + " is not attached");
             }
-            NovaMethod method = new NovaMethod(((NovaOpenStack)getProvider()));
+            NovaMethod method = new NovaMethod(getProvider());
 
             method.deleteResource(NovaServer.SERVICE, "/servers", volume.getProviderVirtualMachineId(), getAttachmentsResource() + "/" + volumeId);
         }
@@ -197,42 +183,20 @@ public class CinderVolume extends AbstractVolumeSupport {
     }
 
     private transient volatile CinderVolumeCapabilities capabilities;
+
     @Override
     public VolumeCapabilities getCapabilities() throws CloudException, InternalException {
         if( capabilities == null ) {
-            capabilities = new CinderVolumeCapabilities((NovaOpenStack)getProvider());
+            capabilities = new CinderVolumeCapabilities(getProvider());
         }
         return capabilities;
-    }
-
-    @Override
-    public int getMaximumVolumeCount() throws InternalException, CloudException {
-        return -2;
-    }
-
-    @Override
-    public Storage<Gigabyte> getMaximumVolumeSize() throws InternalException, CloudException {
-        return new Storage<Gigabyte>(1024, Storage.GIGABYTE);
-    }
-
-    @Override
-    public @Nonnull Storage<Gigabyte> getMinimumVolumeSize() throws InternalException, CloudException {
-        if( ((NovaOpenStack)getProvider()).isRackspace() ) {
-            return new Storage<Gigabyte>(100, Storage.GIGABYTE);
-        }
-        return new Storage<Gigabyte>(1, Storage.GIGABYTE);
-    }
-
-    @Override
-    public @Nonnull String getProviderTermForVolume(@Nonnull Locale locale) {
-        return "volume";
     }
 
     @Override
     public @Nullable Volume getVolume(@Nonnull String volumeId) throws InternalException, CloudException {
         APITrace.begin(getProvider(), "Volume.getVolume");
         try {
-            NovaMethod method = new NovaMethod(((NovaOpenStack)getProvider()));
+            NovaMethod method = new NovaMethod(getProvider());
             JSONObject ob = method.getResource(SERVICE, getResource(), volumeId, true);
 
             if( ob == null ) {
@@ -245,58 +209,13 @@ public class CinderVolume extends AbstractVolumeSupport {
             }
             catch( JSONException e ) {
                 logger.error("getVolume(): Unable to identify expected values in JSON: " + e.getMessage());
-                throw new CloudException(CloudErrorType.COMMUNICATION, 200, "invalidJson", "Missing JSON element for volume");
+                throw new CommunicationException("Unable to understand getVolume response: " + e.getMessage(), e);
             }
             return null;
         }
         finally {
             APITrace.end();
         }
-    }
-
-    @Override
-    public @Nonnull Requirement getVolumeProductRequirement() throws InternalException, CloudException {
-        return (((NovaOpenStack)getProvider()).isHP() ? Requirement.NONE : Requirement.OPTIONAL);
-    }
-
-    @Override
-    public boolean isVolumeSizeDeterminedByProduct() throws InternalException, CloudException {
-        return false;
-    }
-
-    @Override
-    public @Nonnull Iterable<String> listPossibleDeviceIds(@Nonnull Platform platform) throws InternalException, CloudException {
-        ArrayList<String> list = new ArrayList<String>();
-
-        if( platform.isWindows() ) {
-            if (((NovaOpenStack)getProvider()).isHP()) {
-                list.add("/dev/vdf");
-                list.add("/dev/vdg");
-                list.add("/dev/vdh");
-                list.add("/dev/vdi");
-                list.add("/dev/vdj");
-            }
-            else {
-                list.add("/dev/xvdf");
-                list.add("/dev/xvdg");
-                list.add("/dev/xvdh");
-                list.add("/dev/xvdi");
-                list.add("/dev/xvdj");
-            }
-        }
-        else {
-            list.add("/dev/vdf");
-            list.add("/dev/vdg");
-            list.add("/dev/vdh");
-            list.add("/dev/vdi");
-            list.add("/dev/vdj");
-        }
-        return list;
-    }
-
-    @Override
-    public @Nonnull Iterable<VolumeFormat> listSupportedFormats() throws InternalException, CloudException {
-        return Collections.singletonList(VolumeFormat.BLOCK);
     }
 
     @Override
@@ -309,8 +228,8 @@ public class CinderVolume extends AbstractVolumeSupport {
             if( current != null ) {
                 return current;
             }
-            NovaMethod method = new NovaMethod(((NovaOpenStack)getProvider()));
-            ArrayList<VolumeProduct> products = new ArrayList<VolumeProduct>();
+            NovaMethod method = new NovaMethod(getProvider());
+            List<VolumeProduct> products = new ArrayList<>();
 
             JSONObject json = method.getResource(SERVICE, getTypesResource(), null, false);
 
@@ -351,8 +270,7 @@ public class CinderVolume extends AbstractVolumeSupport {
                 }
                 catch( JSONException e ) {
                     logger.error("listVolumes(): Unable to identify expected values in JSON: " + e.getMessage());
-                    e.printStackTrace();
-                    throw new CloudException(CloudErrorType.COMMUNICATION, 200, "invalidJson", "Missing JSON element for volumes in " + json.toString());
+                    throw new CommunicationException("Unable to understand listVolumes response: " + e.getMessage(), e);
                 }
             }
             cache.put(getContext(), Collections.unmodifiableList(products));
@@ -367,8 +285,8 @@ public class CinderVolume extends AbstractVolumeSupport {
     public @Nonnull Iterable<ResourceStatus> listVolumeStatus() throws InternalException, CloudException {
         APITrace.begin(getProvider(), "Volume.listVolumeStatus");
         try {
-            NovaMethod method = new NovaMethod(((NovaOpenStack)getProvider()));
-            ArrayList<ResourceStatus> volumes = new ArrayList<ResourceStatus>();
+            NovaMethod method = new NovaMethod(getProvider());
+            List<ResourceStatus> volumes = new ArrayList<>();
 
             JSONObject json = method.getResource(SERVICE, getResource(), null, false);
 
@@ -386,8 +304,7 @@ public class CinderVolume extends AbstractVolumeSupport {
                 }
                 catch( JSONException e ) {
                     logger.error("listVolumes(): Unable to identify expected values in JSON: " + e.getMessage());
-                    e.printStackTrace();
-                    throw new CloudException(CloudErrorType.COMMUNICATION, 200, "invalidJson", "Missing JSON element for volumes in " + json.toString());
+                    throw new CommunicationException("Unable to understand listVolumeStatus response: " + e.getMessage(), e);
                 }
             }
             return volumes;
@@ -402,8 +319,8 @@ public class CinderVolume extends AbstractVolumeSupport {
         APITrace.begin(getProvider(), "Volume.listVolumes");
         try {
             Iterable<VolumeProduct> products = listVolumeProducts();
-            NovaMethod method = new NovaMethod(((NovaOpenStack)getProvider()));
-            ArrayList<Volume> volumes = new ArrayList<Volume>();
+            NovaMethod method = new NovaMethod(getProvider());
+            List<Volume> volumes = new ArrayList<>();
 
             JSONObject json = method.getResource(SERVICE, getResource(), null, false);
 
@@ -422,8 +339,7 @@ public class CinderVolume extends AbstractVolumeSupport {
                 }
                 catch( JSONException e ) {
                     logger.error("listVolumes(): Unable to identify expected values in JSON: " + e.getMessage());
-                    e.printStackTrace();
-                    throw new CloudException(CloudErrorType.COMMUNICATION, 200, "invalidJson", "Missing JSON element for volumes in " + json.toString());
+                    throw new CommunicationException("Unable to understand listVolumes response: " + e.getMessage(), e);
                 }
             }
             return volumes;
@@ -437,7 +353,7 @@ public class CinderVolume extends AbstractVolumeSupport {
     public boolean isSubscribed() throws CloudException, InternalException {
         APITrace.begin(getProvider(), "Volume.isSubscribed");
         try {
-            return (((NovaOpenStack)getProvider()).getAuthenticationContext().getServiceUrl(SERVICE) != null);
+            return getProvider().getAuthenticationContext().getServiceUrl(SERVICE) != null;
         }
         finally {
             APITrace.end();
@@ -467,7 +383,7 @@ public class CinderVolume extends AbstractVolumeSupport {
                     // ignore
                 }
             }
-            NovaMethod method = new NovaMethod(((NovaOpenStack)getProvider()));
+            NovaMethod method = new NovaMethod(getProvider());
 
             method.deleteResource(SERVICE, getResource(), volumeId, null);
 
@@ -534,7 +450,7 @@ public class CinderVolume extends AbstractVolumeSupport {
             return new ResourceStatus(volumeId, state);
         }
         catch( JSONException e ) {
-            throw new CloudException(e);
+            throw new CommunicationException("Unable to understand toStatus response: " + e.getMessage(), e);
         }
     }
 
@@ -579,10 +495,10 @@ public class CinderVolume extends AbstractVolumeSupport {
                 }
             }
 
-            long created = (json.has("createdAt") ? ((NovaOpenStack)getProvider()).parseTimestamp(json.getString("createdAt")) : -1L);
+            long created = (json.has("createdAt") ? (getProvider()).parseTimestamp(json.getString("createdAt")) : -1L);
 
             if( created < 1L ) {
-                created = (json.has("created_at") ? ((NovaOpenStack)getProvider()).parseTimestamp(json.getString("created_at")) : -1L);
+                created = (json.has("created_at") ? (getProvider()).parseTimestamp(json.getString("created_at")) : -1L);
             }
 
             int size = 0;
@@ -662,7 +578,7 @@ public class CinderVolume extends AbstractVolumeSupport {
             volume.setProviderSnapshotId(snapshotId);
             volume.setProviderVirtualMachineId(vmId);
             volume.setProviderVolumeId(volumeId);
-            volume.setSize(new Storage<Gigabyte>(size, Storage.GIGABYTE));
+            volume.setSize(new Storage<>(size, Storage.GIGABYTE));
             if( productId != null ) {
                 VolumeProduct match = null;
 
@@ -694,7 +610,7 @@ public class CinderVolume extends AbstractVolumeSupport {
             return volume;
         }
         catch( JSONException e ) {
-            throw new CloudException(e);
+            throw new CommunicationException("Unable to understand toVolume response: " + e.getMessage(), e);
         }
     }
     
@@ -702,7 +618,7 @@ public class CinderVolume extends AbstractVolumeSupport {
     public void setTags(@Nonnull String volumeId, @Nonnull Tag... tags) throws CloudException, InternalException {
     	APITrace.begin(getProvider(), "Volume.setTags");
     	try {
-    		((NovaOpenStack) getProvider()).createTags( SERVICE, "/volumes", volumeId, tags);
+    		getProvider().createTags( SERVICE, "/volumes", volumeId, tags);
     	}
     	finally {
     		APITrace.end();
@@ -720,7 +636,7 @@ public class CinderVolume extends AbstractVolumeSupport {
     public void updateTags(@Nonnull String volumeId, @Nonnull Tag... tags) throws CloudException, InternalException {
     	APITrace.begin(getProvider(), "Volume.updateTags");
     	try {
-    		((NovaOpenStack) getProvider()).updateTags( SERVICE, "/volumes", volumeId, tags);
+    		getProvider().updateTags( SERVICE, "/volumes", volumeId, tags);
     	}
     	finally {
     		APITrace.end();
@@ -738,7 +654,7 @@ public class CinderVolume extends AbstractVolumeSupport {
     public void removeTags(@Nonnull String volumeId, @Nonnull Tag... tags) throws CloudException, InternalException {
     	APITrace.begin(getProvider(), "Volume.removeTags");
     	try {
-    		((NovaOpenStack) getProvider()).removeTags( SERVICE, "/volumes", volumeId, tags);
+    		getProvider().removeTags( SERVICE, "/volumes", volumeId, tags);
     	}
     	finally {
     		APITrace.end();

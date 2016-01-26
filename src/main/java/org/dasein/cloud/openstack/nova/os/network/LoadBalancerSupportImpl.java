@@ -3,10 +3,7 @@ package org.dasein.cloud.openstack.nova.os.network;
 import org.apache.commons.net.util.SubnetUtils;
 import org.apache.http.HttpStatus;
 import org.apache.log4j.Logger;
-import org.dasein.cloud.CloudException;
-import org.dasein.cloud.InternalException;
-import org.dasein.cloud.ResourceStatus;
-import org.dasein.cloud.VisibleScope;
+import org.dasein.cloud.*;
 import org.dasein.cloud.compute.VirtualMachine;
 import org.dasein.cloud.network.*;
 import org.dasein.cloud.openstack.nova.os.NovaException;
@@ -132,7 +129,7 @@ public class LoadBalancerSupportImpl extends AbstractLoadBalancerSupport<NovaOpe
 
             if( result == null ) {
                 logger.error("create(): Method executed successfully, but no load balancer was created");
-                throw new CloudException("Method executed successfully, but no load balancer was created");
+                throw new GeneralCloudException("No loadbalancer was created", CloudErrorType.GENERAL);
             }
             try{
                 if( result.has("pool") ) {
@@ -144,7 +141,8 @@ public class LoadBalancerSupportImpl extends AbstractLoadBalancerSupport<NovaOpe
                         }
                         catch ( Throwable e ) {
                             getMethod().deleteNetworks(getLoadBalancersResource(), lbId);
-                            throw new CloudException(e);
+                            throw new GeneralCloudException("No listener was created", CloudErrorType.GENERAL);
+
                         }
                         if( options.getEndpoints() != null ) {
                             for( LoadBalancerEndpoint endpoint : options.getEndpoints() ) {
@@ -158,11 +156,12 @@ public class LoadBalancerSupportImpl extends AbstractLoadBalancerSupport<NovaOpe
                     }
                 }
                 logger.error("create(): Method executed successfully, but no load balancer was found in JSON");
-                throw new CloudException("Method executed successfully, but no load balancer was found in JSON");
+                throw new ResourceNotFoundException("Method executed successfully, but no load balancer was found in JSON");
             }
             catch( JSONException e ) {
                 logger.error("create(): Failed to identify a load balancer ID in the cloud response: " + e.getMessage());
-                throw new CloudException("Failed to identify a load balancer ID in the cloud response: " + e.getMessage());
+                throw new CommunicationException("Failed to identify a load balancer ID in the cloud response: " + e.getMessage(), e);
+
             }
         }
         finally {
@@ -185,7 +184,8 @@ public class LoadBalancerSupportImpl extends AbstractLoadBalancerSupport<NovaOpe
                 }
             }
             catch( JSONException e ) {
-                throw new CloudException("Unable to parse list load balancers response", e);
+                throw new CommunicationException("Unable to parse list load balancers response" + e.getMessage(), e);
+
             }
         }
         return results;
@@ -276,7 +276,7 @@ public class LoadBalancerSupportImpl extends AbstractLoadBalancerSupport<NovaOpe
                     }
                 }
                 catch( JSONException e ) {
-                    e.printStackTrace();
+                    throw new CommunicationException("Unable to parse response", e);
                 }
             }
         }
@@ -329,7 +329,8 @@ public class LoadBalancerSupportImpl extends AbstractLoadBalancerSupport<NovaOpe
             JSONObject result = getMethod().postNetworks(getLoadBalancersResource(), providerLoadBalancerId, new JSONObject(json), "health_monitors");
             if( result == null ) {
                 logger.error("create(): Method executed successfully, but no health monitor was attached");
-                throw new CloudException("Method executed successfully, but no health monitor was attached");
+                throw new GeneralCloudException("Method executed successfully, but no health monitor was attached", CloudErrorType.GENERAL);
+
             }
         }
         finally {
@@ -355,7 +356,7 @@ public class LoadBalancerSupportImpl extends AbstractLoadBalancerSupport<NovaOpe
                 }
                 catch( JSONException e ) {
                     logger.error("Unable to identify expected values in JSON:" + e.getMessage());
-                    throw new CloudException(e);
+                    throw new CommunicationException("Unable to identify expected values in JSON: " + e.getMessage(), e);
                 }
             }
             return healthMonitors;
@@ -375,13 +376,15 @@ public class LoadBalancerSupportImpl extends AbstractLoadBalancerSupport<NovaOpe
 
             if( result == null ) {
                 logger.error("create(): Method executed successfully, but no health monitor was found");
-                throw new CloudException("Method executed successfully, but no health monitor was found");
+                throw new GeneralCloudException("Method executed successfully, but no health monitor was found", CloudErrorType.GENERAL);
+
             }
             try {
                 return toLoadBalancerHealthCheck(result.getJSONObject("health_monitor"));
             }
             catch( JSONException e ) {
-                throw new CloudException("Unable to parse a health check object", e);
+                throw new CommunicationException("Unable to parse a health check object " + e.getMessage(), e);
+
             }
         }
         finally {
@@ -457,11 +460,12 @@ public class LoadBalancerSupportImpl extends AbstractLoadBalancerSupport<NovaOpe
 
             if( result == null ) {
                 logger.error("create(): Method executed successfully, but no health monitor was created");
-                throw new CloudException("Method executed successfully, but no health monitor was created");
+                throw new GeneralCloudException("Method executed successfully, but no health monitor was created", CloudErrorType.GENERAL);
+
             }
             LoadBalancerHealthCheck hc = toLoadBalancerHealthCheck(result.getJSONObject("health_monitor"));
             if( hc == null ) {
-                throw new CloudException("Unable to create loadbalancer health check");
+                throw new GeneralCloudException("Unable to create loadbalancer health check" , CloudErrorType.GENERAL);
             }
             for( String lbId : loadbalancerIds ) {
                 attachHealthCheckToLoadBalancer(lbId, hc.getProviderLBHealthCheckId());
@@ -469,7 +473,8 @@ public class LoadBalancerSupportImpl extends AbstractLoadBalancerSupport<NovaOpe
             return hc;
         }
         catch( JSONException e ) {
-            throw new CloudException("Unable to parse create health monitor response", e);
+            throw new CommunicationException("Unable to parse create health monitor response" + e.getMessage(), e);
+
         }
         finally {
             APITrace.end();
@@ -564,7 +569,8 @@ public class LoadBalancerSupportImpl extends AbstractLoadBalancerSupport<NovaOpe
 
             if( result == null ) {
                 logger.error("create(): Method executed successfully, but no listener was created");
-                throw new CloudException("Method executed successfully, but no listener was created");
+                throw new GeneralCloudException("No listener was created", CloudErrorType.GENERAL);
+
             }
         }
         finally {
@@ -591,7 +597,8 @@ public class LoadBalancerSupportImpl extends AbstractLoadBalancerSupport<NovaOpe
             JSONObject result = getMethod().postNetworks(getMembersResource(), null, new JSONObject(json), false);
             if( result == null ) {
                 logger.error("create(): Method executed successfully, but no load balancer member was created");
-                throw new CloudException("Method executed successfully, but no load balancer member was created");
+                throw new GeneralCloudException("Method executed successfully, but no load balancer member was created", CloudErrorType.GENERAL);
+
             }
         }
         finally {
@@ -621,7 +628,7 @@ public class LoadBalancerSupportImpl extends AbstractLoadBalancerSupport<NovaOpe
             }
             catch( JSONException e ) {
                 logger.error("Unable to understand listVips response: " + e.getMessage());
-                throw new CloudException(e);
+                throw new CommunicationException("Unable to understand listVips response: " + e.getMessage(), e);
             }
         }
         return listeners;
@@ -650,7 +657,7 @@ public class LoadBalancerSupportImpl extends AbstractLoadBalancerSupport<NovaOpe
             }
             catch( JSONException e ) {
                 logger.error("Unable to understand listMembers response: " + e.getMessage());
-                throw new CloudException(e);
+                throw new CommunicationException("Unable to understand listMembers response: " + e.getMessage(), e);
             }
         }
         return members;
@@ -685,7 +692,7 @@ public class LoadBalancerSupportImpl extends AbstractLoadBalancerSupport<NovaOpe
                 }
                 catch( JSONException e ) {
                     logger.error("Unable to understand listPools response: " + e.getMessage());
-                    throw new CloudException(e);
+                    throw new GeneralCloudException("Unable to understand listPools response: ", CloudErrorType.GENERAL);
                 }
             }
             else if( result != null && result.has("pool")) {
@@ -694,7 +701,7 @@ public class LoadBalancerSupportImpl extends AbstractLoadBalancerSupport<NovaOpe
                 }
                 catch( JSONException e ) {
                     logger.error("Unable to understand getPool response: " + e.getMessage());
-                    throw new CloudException(e);
+                    throw new CommunicationException("Unable to understand getPool response: " + e.getMessage(), e);
                 }
             }
 
@@ -807,7 +814,9 @@ public class LoadBalancerSupportImpl extends AbstractLoadBalancerSupport<NovaOpe
                     "ACTIVE".equalsIgnoreCase(member.getString("status")) ? LbEndpointState.ACTIVE : LbEndpointState.INACTIVE);
         }
         catch( JSONException e ) {
-            throw new CloudException("Unable to parse load balancer member", e);
+            throw new CommunicationException("Unable to parse load balancer member" + e.getMessage(), e);
+
+
         }
     }
 

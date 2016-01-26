@@ -20,11 +20,7 @@
 package org.dasein.cloud.openstack.nova.os.ext.rackspace.db;
 
 import org.apache.log4j.Logger;
-import org.dasein.cloud.CloudErrorType;
-import org.dasein.cloud.CloudException;
-import org.dasein.cloud.InternalException;
-import org.dasein.cloud.ProviderContext;
-import org.dasein.cloud.ResourceStatus;
+import org.dasein.cloud.*;
 import org.dasein.cloud.identity.ServiceAction;
 import org.dasein.cloud.openstack.nova.os.NovaMethod;
 import org.dasein.cloud.openstack.nova.os.NovaOpenStack;
@@ -59,29 +55,22 @@ public class RackspaceRDBMS extends AbstractRelationalDatabaseSupport<NovaOpenSt
     }
 
     private @Nonnull String getTenantId() throws CloudException, InternalException {
-        return getProvider().getContext().getAccountNumber();
+        return getContext().getAccountNumber();
     }
 
     @Override
     public @Nonnull String createFromScratch(@Nonnull String dataSourceName, @Nonnull DatabaseProduct product, @Nonnull String databaseVersion, @Nonnull String withAdminUser, @Nonnull String withAdminPassword, int hostPort) throws CloudException, InternalException {
         APITrace.begin(getProvider(), "RDBMS.createFromScratch");
         try {
-            ProviderContext ctx = getProvider().getContext();
-
-            if( ctx == null ) {
-                logger.error("No context exists for this request");
-                throw new InternalException("No context exists for this request");
-            }
-            
-            Map<String,Object> wrapper = new HashMap<String,Object>();
-            Map<String,Object> json = new HashMap<String,Object>();
+            Map<String,Object> wrapper = new HashMap<>();
+            Map<String,Object> json = new HashMap<>();
             NovaMethod method = new NovaMethod(getProvider());
 
-            Map<String,Object> database = new HashMap<String, Object>();
+            Map<String,Object> database = new HashMap<>();
 
             database.put("name", dataSourceName);
             
-            List<Map<String,Object>> dblist= new ArrayList<Map<String, Object>>();
+            List<Map<String,Object>> dblist= new ArrayList<>();
             
             dblist.add(database);
             
@@ -93,14 +82,14 @@ public class RackspaceRDBMS extends AbstractRelationalDatabaseSupport<NovaOpenSt
             json.put("flavorRef", getFlavorRef(id));
             json.put("name", dataSourceName);
             if( withAdminUser != null && withAdminPassword != null ) {
-                List<Map<String,Object>> users = new ArrayList<Map<String, Object>>();
-                Map<String,Object> entry = new HashMap<String, Object>();
+                List<Map<String,Object>> users = new ArrayList<>();
+                Map<String,Object> entry = new HashMap<>();
                 
                 entry.put("name", withAdminUser);
                 entry.put("password", withAdminPassword);
                 
-                List<Map<String,Object>> dbaccess = new ArrayList<Map<String, Object>>();
-                Map<String,Object> oneDb = new HashMap<String, Object>();
+                List<Map<String,Object>> dbaccess = new ArrayList<>();
+                Map<String,Object> oneDb = new HashMap<>();
                 
                 oneDb.put("name", dataSourceName);
                 dbaccess.add(oneDb);
@@ -114,7 +103,7 @@ public class RackspaceRDBMS extends AbstractRelationalDatabaseSupport<NovaOpenSt
             if( size < 1 ) {
                 size = 5;
             }
-            Map<String,Object> volume = new HashMap<String, Object>();
+            Map<String,Object> volume = new HashMap<>();
             
             volume.put("size", String.valueOf(size));
             
@@ -128,7 +117,7 @@ public class RackspaceRDBMS extends AbstractRelationalDatabaseSupport<NovaOpenSt
 
             if( result != null && result.has("instance") ) {
                 try {
-                    Database db = toDatabase(ctx, result.getJSONObject("instance"));
+                    Database db = toDatabase(result.getJSONObject("instance"));
 
                     if( db != null ) {
                         return db.getProviderDatabaseId();
@@ -136,12 +125,12 @@ public class RackspaceRDBMS extends AbstractRelationalDatabaseSupport<NovaOpenSt
                 }
                 catch( JSONException e ) {
                     logger.error("createFromScratch(): Unable to understand create response: " + e.getMessage());
-                    e.printStackTrace();
-                    throw new CloudException(e);
+                    throw new CommunicationException("Unable to parse the response", e);
                 }
             }
             logger.error("createFromScratch(): No database was created by the create attempt, and no error was returned");
-            throw new CloudException("No database was created");
+            throw new GeneralCloudException("No database was created", CloudErrorType.GENERAL);
+
 
         }
         finally {
@@ -168,12 +157,6 @@ public class RackspaceRDBMS extends AbstractRelationalDatabaseSupport<NovaOpenSt
     public @Nullable Database getDatabase(@Nonnull String providerDatabaseId) throws CloudException, InternalException {
         APITrace.begin(getProvider(), "RDBMS.getDatabase");
         try {
-            ProviderContext ctx = getProvider().getContext();
-
-            if( ctx == null ) {
-                logger.error("No context exists for this request");
-                throw new InternalException("No context exists for this request");
-            }
             NovaMethod method = new NovaMethod(getProvider());
             JSONObject ob = method.getResource(SERVICE, RESOURCE, providerDatabaseId, false);
 
@@ -182,12 +165,12 @@ public class RackspaceRDBMS extends AbstractRelationalDatabaseSupport<NovaOpenSt
             }
             try {
                 if( ob.has("instance") ) {
-                    return toDatabase(ctx, ob.getJSONObject("instance"));
+                    return toDatabase(ob.getJSONObject("instance"));
                 }
             }
             catch( JSONException e ) {
                 logger.error("getDatabase(): Unable to identify expected values in JSON: " + e.getMessage());
-                throw new CloudException(CloudErrorType.COMMUNICATION, 200, "invalidJson", "Missing JSON element for instance");
+                throw new CommunicationException("Missing JSON element for instance", e);
             }
             return null;
         }
@@ -217,15 +200,10 @@ public class RackspaceRDBMS extends AbstractRelationalDatabaseSupport<NovaOpenSt
         return Collections.emptyList();
     }
 
+
     public @Nullable DatabaseProduct getDatabaseProduct(@Nonnull String flavor) throws CloudException, InternalException {
         APITrace.begin(getProvider(), "RDBMS.getDatabaseProduct");
         try {
-            ProviderContext ctx = getProvider().getContext();
-
-            if( ctx == null ) {
-                logger.error("No context exists for this request");
-                throw new InternalException("No context exists for this request");
-            }
             int idx = flavor.indexOf(":");
             int size = 5;
             
@@ -239,12 +217,11 @@ public class RackspaceRDBMS extends AbstractRelationalDatabaseSupport<NovaOpenSt
 
             if( json != null && json.has("flavor") ) {
                 try {
-                    return toProduct(ctx, size, json.getJSONObject("flavor"));
+                    return toProduct(size, json.getJSONObject("flavor"));
                 }
                 catch( JSONException e ) {
                     logger.error("getDatabaseProduct(): Unable to identify expected values in JSON: " + e.getMessage());
-                    e.printStackTrace();
-                    throw new CloudException(CloudErrorType.COMMUNICATION, 200, "invalidJson", "Missing JSON element for flavors in " + json.toString());
+                    throw new CommunicationException("Missing JSON element for flavors ", e);
                 }
             }
             return null;
@@ -259,23 +236,15 @@ public class RackspaceRDBMS extends AbstractRelationalDatabaseSupport<NovaOpenSt
         APITrace.begin(getProvider(), "RDBMS.getDatabaseProducts");
         try {
             if( DatabaseEngine.MYSQL.equals(databaseEngine) ) {
-                Logger std = NovaOpenStack.getLogger(RackspaceRDBMS.class, "std");
-
-                if( std.isTraceEnabled() ) {
-                    std.trace("ENTER: " + RackspaceRDBMS.class.getName() + ".getDatabaseProducts()");
+                if( logger.isTraceEnabled() ) {
+                    logger.trace("ENTER: " + RackspaceRDBMS.class.getName() + ".getDatabaseProducts()");
                 }
                 try {
-                    ProviderContext ctx = getProvider().getContext();
-
-                    if( ctx == null ) {
-                        std.error("No context exists for this request");
-                        throw new InternalException("No context exists for this request");
-                    }
                     NovaMethod method = new NovaMethod(getProvider());
 
                     JSONObject json = method.getResource(SERVICE, "/flavors", null, false);
 
-                    List<DatabaseProduct> products = new ArrayList<DatabaseProduct>();
+                    List<DatabaseProduct> products = new ArrayList<>();
 
                     if( json != null && json.has("flavors") ) {
                         try {
@@ -286,7 +255,7 @@ public class RackspaceRDBMS extends AbstractRelationalDatabaseSupport<NovaOpenSt
 
                                 if( flavor != null ) {
                                     for( int size : new int[] { 2, 5, 10, 20, 25, 30, 40, 50, 60, 70, 80, 90, 100, 150}) { //150 is max size , 200, 250, 300, 400, 500, 600, 700, 800, 900, 1000 } ) {
-                                        DatabaseProduct product = toProduct(ctx, size, flavor);
+                                        DatabaseProduct product = toProduct(size, flavor);
 
                                         if( product != null ) {
                                             products.add(product);
@@ -296,16 +265,15 @@ public class RackspaceRDBMS extends AbstractRelationalDatabaseSupport<NovaOpenSt
                             }
                         }
                         catch( JSONException e ) {
-                            std.error("getDatabaseProducts(): Unable to identify expected values in JSON: " + e.getMessage());
-                            e.printStackTrace();
-                            throw new CloudException(CloudErrorType.COMMUNICATION, 200, "invalidJson", "Missing JSON element for flavors in " + json.toString());
+                            logger.error("getDatabaseProducts(): Unable to identify expected values in JSON: " + e.getMessage());
+                            throw new CommunicationException("Unable to parse the response", e);
                         }
                     }
                     return products;
                 }
                 finally {
-                    if( std.isTraceEnabled() ) {
-                        std.trace("exit - " + RackspaceRDBMS.class.getName() + ".getDatabaseProducts()");
+                    if( logger.isTraceEnabled() ) {
+                        logger.trace("exit - " + RackspaceRDBMS.class.getName() + ".getDatabaseProducts()");
                     }
                 }
             }
@@ -321,12 +289,6 @@ public class RackspaceRDBMS extends AbstractRelationalDatabaseSupport<NovaOpenSt
     private @Nullable String getFlavorRef(@Nonnull String productId) throws CloudException, InternalException {
         APITrace.begin(getProvider(), "RDBMS.getFlavorRef");
         try {
-            ProviderContext ctx = getProvider().getContext();
-
-            if( ctx == null ) {
-                logger.error("No context exists for this request");
-                throw new InternalException("No context exists for this request");
-            }
             int idx = productId.indexOf(":");
 
             if( idx > -1 ) {
@@ -360,8 +322,7 @@ public class RackspaceRDBMS extends AbstractRelationalDatabaseSupport<NovaOpenSt
                 }
                 catch( JSONException e ) {
                     logger.error("getFlavorRef(): Unable to identify expected values in JSON: " + e.getMessage());
-                    e.printStackTrace();
-                    throw new CloudException(CloudErrorType.COMMUNICATION, 200, "invalidJson", "Missing JSON element for flavors in " + json.toString());
+                    throw new CommunicationException("Unable to parse the response", e);
                 }
             }
             return null;
@@ -391,11 +352,6 @@ public class RackspaceRDBMS extends AbstractRelationalDatabaseSupport<NovaOpenSt
     public @Nonnull Iterable<ResourceStatus> listDatabaseStatus() throws CloudException, InternalException {
         APITrace.begin(getProvider(), "RDBMS.listDatabaseStatus");
         try {
-            ProviderContext ctx = getProvider().getContext();
-
-            if( ctx == null ) {
-                throw new InternalException("No context exists for this request");
-            }
             NovaMethod method = new NovaMethod(getProvider());
             List<ResourceStatus> databases = new ArrayList<ResourceStatus>();
 
@@ -414,7 +370,7 @@ public class RackspaceRDBMS extends AbstractRelationalDatabaseSupport<NovaOpenSt
                     }
                 }
                 catch( JSONException e ) {
-                    throw new CloudException(CloudErrorType.COMMUNICATION, 200, "invalidJson", "Missing JSON element for instances in " + json.toString());
+                    throw new CommunicationException("Missing JSON element for instances", e);
                 }
             }
             return databases;
@@ -428,14 +384,8 @@ public class RackspaceRDBMS extends AbstractRelationalDatabaseSupport<NovaOpenSt
     public Iterable<Database> listDatabases() throws CloudException, InternalException {
         APITrace.begin(getProvider(), "RDBMS.listDatabases");
         try {
-            ProviderContext ctx = getProvider().getContext();
-
-            if( ctx == null ) {
-                logger.error("No context exists for this request");
-                throw new InternalException("No context exists for this request");
-            }
             NovaMethod method = new NovaMethod(getProvider());
-            List<Database> databases = new ArrayList<Database>();
+            List<Database> databases = new ArrayList<>();
 
             JSONObject json = method.getResource(SERVICE, RESOURCE, null, false);
 
@@ -444,7 +394,7 @@ public class RackspaceRDBMS extends AbstractRelationalDatabaseSupport<NovaOpenSt
                     JSONArray list = json.getJSONArray("instances");
 
                     for( int i=0; i<list.length(); i++ ) {
-                        Database db = toDatabase(ctx, list.getJSONObject(i));
+                        Database db = toDatabase(list.getJSONObject(i));
 
                         if( db != null ) {
                             databases.add(db);
@@ -453,8 +403,7 @@ public class RackspaceRDBMS extends AbstractRelationalDatabaseSupport<NovaOpenSt
                 }
                 catch( JSONException e ) {
                     logger.error("listDatabases(): Unable to identify expected values in JSON: " + e.getMessage());
-                    e.printStackTrace();
-                    throw new CloudException(CloudErrorType.COMMUNICATION, 200, "invalidJson", "Missing JSON element for instances in " + json.toString());
+                    throw new CommunicationException("Missing JSON element for instances", e);
                 }
             }
             return databases;
@@ -468,12 +417,6 @@ public class RackspaceRDBMS extends AbstractRelationalDatabaseSupport<NovaOpenSt
     public void removeDatabase(String providerDatabaseId) throws CloudException, InternalException {
         APITrace.begin(getProvider(), "RDBMS.removeDatabase");
         try {
-            ProviderContext ctx = getProvider().getContext();
-
-            if( ctx == null ) {
-                logger.error("No context exists for this request");
-                throw new InternalException("No context exists for this request");
-            }
             NovaMethod method = new NovaMethod(getProvider());
 
             method.deleteResource(SERVICE, RESOURCE, providerDatabaseId, null);
@@ -509,15 +452,8 @@ public class RackspaceRDBMS extends AbstractRelationalDatabaseSupport<NovaOpenSt
     public void restart(String providerDatabaseId, boolean blockUntilDone) throws CloudException, InternalException {
         APITrace.begin(getProvider(), "RDBMS.restart");
         try {
-            ProviderContext ctx = getProvider().getContext();
-
-            if( ctx == null ) {
-                logger.error("No context exists for this request");
-                throw new InternalException("No context exists for this request");
-            }
-
             NovaMethod method = new NovaMethod(getProvider());
-            Map<String,Object> wrapper = new HashMap<String, Object>();
+            Map<String,Object> wrapper = new HashMap<>();
 
             wrapper.put("restart", new HashMap<String,Object>());
             method.postString(SERVICE, RESOURCE, "action", new JSONObject(wrapper), false);
@@ -532,12 +468,12 @@ public class RackspaceRDBMS extends AbstractRelationalDatabaseSupport<NovaOpenSt
         return new String[0];
     }
     
-    private @Nullable Database toDatabase(@Nonnull ProviderContext ctx, @Nullable JSONObject json) throws CloudException, InternalException {
+    private @Nullable Database toDatabase(@Nullable JSONObject json) throws CloudException, InternalException {
         if( json == null ) {
             return null;
         }
         
-        String regionId = ctx.getRegionId();
+        String regionId = getContext().getRegionId();
 
         try {
             String dbId = (json.has("id") ? json.getString("id") : null);
@@ -617,11 +553,11 @@ public class RackspaceRDBMS extends AbstractRelationalDatabaseSupport<NovaOpenSt
             return database;
         }
         catch( JSONException e ) {
-            throw new CloudException(e);
+            throw new CommunicationException("Unable to parse the response", e);
         }
     }
 
-    private @Nullable DatabaseProduct toProduct(@Nonnull ProviderContext ctx, @Nonnegative int size, @Nullable JSONObject json) throws CloudException, InternalException {
+    private @Nullable DatabaseProduct toProduct(@Nonnegative int size, @Nullable JSONObject json) throws CloudException, InternalException {
         if( json == null ) {
             return null;
         }
@@ -642,7 +578,7 @@ public class RackspaceRDBMS extends AbstractRelationalDatabaseSupport<NovaOpenSt
             }
             id = id + ":" + size;
 
-            String regionId = ctx.getRegionId();
+            String regionId = getContext().getRegionId();
 
             if( regionId == null ) {
                 throw new InternalException("No region is associated with this request");
@@ -666,7 +602,7 @@ public class RackspaceRDBMS extends AbstractRelationalDatabaseSupport<NovaOpenSt
             return product;
         }
         catch( JSONException e ) {
-            throw new CloudException(e);
+            throw new CommunicationException("Unable to parse the response", e);
         }
     }
 
@@ -707,7 +643,7 @@ public class RackspaceRDBMS extends AbstractRelationalDatabaseSupport<NovaOpenSt
             return new ResourceStatus(dbId, currentState);
         }
         catch( JSONException e ) {
-            throw new CloudException(e);
+            throw new CommunicationException("Unable to parse the response", e);
         }
     }
 }

@@ -20,11 +20,7 @@
 package org.dasein.cloud.openstack.nova.os.ext.rackspace.dns;
 
 import org.apache.log4j.Logger;
-import org.dasein.cloud.CloudErrorType;
-import org.dasein.cloud.CloudException;
-import org.dasein.cloud.InternalException;
-import org.dasein.cloud.ProviderContext;
-import org.dasein.cloud.ResourceStatus;
+import org.dasein.cloud.*;
 import org.dasein.cloud.identity.ServiceAction;
 import org.dasein.cloud.network.DNSRecord;
 import org.dasein.cloud.network.DNSRecordType;
@@ -77,7 +73,7 @@ public class RackspaceCloudDNS implements DNSSupport {
             DNSZone zone = getDnsZone(providerDnsZoneId);
             
             if( zone == null ) {
-                throw new CloudException("No such zone: " + providerDnsZoneId);
+                throw new InternalException("No such zone: " + providerDnsZoneId);
             }
             if( recordType.equals(DNSRecordType.A) || recordType.equals(DNSRecordType.AAAA) || recordType.equals(DNSRecordType.CNAME) || recordType.equals(DNSRecordType.MX) ) {
                 if( name.endsWith(zone.getDomainName() + ".") ) {
@@ -133,14 +129,13 @@ public class RackspaceCloudDNS implements DNSSupport {
                     }
                     catch( JSONException e ) {
                         logger.error("createDnsZone(): JSON error parsing response: " + e.getMessage());
-                        e.printStackTrace();
-                        throw new CloudException(CloudErrorType.COMMUNICATION, 200, "invalidResponse", "JSON error parsing " + response);
+                        throw new CommunicationException("Unable to understand parsing response: " + e.getMessage(), e);
                     }
                 }
             }
             if( lastRecord == null ) {
                 logger.error("addDnsRecord(): No record was created, but no error specified");
-                throw new CloudException("No record was created, but no error specified");
+                throw new GeneralCloudException("No record was created, but no error specified", CloudErrorType.GENERAL);
             }
             return lastRecord;
         }
@@ -194,11 +189,11 @@ public class RackspaceCloudDNS implements DNSSupport {
             }
             catch( JSONException e ) {
                 logger.error("createDnsZone(): JSON error parsing response: " + e.getMessage());
-                e.printStackTrace();
-                throw new CloudException(CloudErrorType.COMMUNICATION, 200, "invalidResponse", "JSON error parsing " + response);
+                throw new CommunicationException("Unable to understand createDnsZone() response: " + e.getMessage(), e);
             }
             logger.error("createDnsZone(): No zone was created, but no error specified");
-            throw new CloudException("No zone was created, but no error specified");
+            throw new GeneralCloudException("No zone was created, but no error specified", CloudErrorType.GENERAL);
+
         }
         finally {
             APITrace.end();
@@ -245,8 +240,7 @@ public class RackspaceCloudDNS implements DNSSupport {
             }
             catch( JSONException e ) {
                 logger.error("lookupRecord(): JSON error parsing response: " + e.getMessage());
-                e.printStackTrace();
-                throw new CloudException(CloudErrorType.COMMUNICATION, 200, "invalidResponse", "JSON error parsing " + response);
+                throw new GeneralCloudException("createDnsZone(): JSON error parsing response", CloudErrorType.GENERAL);
             }
             return ids;
         }
@@ -324,7 +318,7 @@ public class RackspaceCloudDNS implements DNSSupport {
             }
         }
         catch( JSONException e ) {
-            throw new CloudException(e);
+            throw new CommunicationException("Unable to understand response: " + e.getMessage(), e);
         }
     }
     
@@ -380,8 +374,7 @@ public class RackspaceCloudDNS implements DNSSupport {
             }
             catch( JSONException e ) {
                 std.error("getCompleteDNS(): JSON error parsing response: " + e.getMessage());
-                e.printStackTrace();
-                throw new CloudException(CloudErrorType.COMMUNICATION, 200, "invalidResponse", "JSON error parsing " + response);
+                throw new CommunicationException("Unable to understand getCompleteDNS() response: " + e.getMessage(), e);
             }
             return null;
         }
@@ -409,7 +402,7 @@ public class RackspaceCloudDNS implements DNSSupport {
             DNSZone zone = getDnsZone(providerDnsZoneId);
             
             if( zone == null ) {
-                throw new CloudException("No such zone: " + providerDnsZoneId);
+                throw new InternalException("No such zone: " + providerDnsZoneId);
             }
             ProviderContext ctx = provider.getContext();
 
@@ -458,8 +451,7 @@ public class RackspaceCloudDNS implements DNSSupport {
             }
             catch( JSONException e ) {
                 logger.error("listDnsRecords(): JSON error parsing response: " + e.getMessage());
-                e.printStackTrace();
-                throw new CloudException(CloudErrorType.COMMUNICATION, 200, "invalidResponse", "JSON error parsing " + response);
+                throw new CommunicationException("Unable to understand listDnsRecords() response: " + e.getMessage(), e);
             }
             return records;
         }
@@ -514,7 +506,7 @@ public class RackspaceCloudDNS implements DNSSupport {
                 }
             }
             catch( JSONException e ) {
-                throw new CloudException(CloudErrorType.COMMUNICATION, 200, "invalidResponse", "JSON error parsing " + response);
+                throw new CommunicationException("Invalid response: " + e.getMessage(), e);
             }
             return zones;
         }
@@ -576,8 +568,7 @@ public class RackspaceCloudDNS implements DNSSupport {
             }
             catch( JSONException e ) {
                 logger.error("listDnsZones(): JSON error parsing response: " + e.getMessage());
-                e.printStackTrace();
-                throw new CloudException(CloudErrorType.COMMUNICATION, 200, "invalidResponse", "JSON error parsing " + response);
+                throw new CommunicationException("Unable to understand listDnsZones() response: " + e.getMessage(), e);
             }
             return zones;
         }
@@ -641,7 +632,7 @@ public class RackspaceCloudDNS implements DNSSupport {
             return record;
         }
         catch( JSONException e ) {
-            throw new CloudException(e);
+            throw new CommunicationException("Unable to understand response: " + e.getMessage(), e);
         }        
     }
 
@@ -694,7 +685,7 @@ public class RackspaceCloudDNS implements DNSSupport {
             return zone;
         }
         catch( JSONException e ) {
-            throw new CloudException(e);
+            throw new CommunicationException("Unable to understand  response: " + e.getMessage(), e);
         }
     }
     
@@ -712,12 +703,12 @@ public class RackspaceCloudDNS implements DNSSupport {
                 JSONObject response = method.getResource(SERVICE, "/status", jobId + "?showDetails=true", false);
     
                 if( response == null ) {
-                    throw new CloudException("Job disappeared");
+                    throw new GeneralCloudException("Job disappeared", CloudErrorType.GENERAL);
                 }
                 String status = (response.has("status")? response.getString("status") : null);
                 
                 if( status == null ) {
-                    throw new CloudException("No job status");
+                    throw new GeneralCloudException("No job status", CloudErrorType.GENERAL);
                 }
                 if( status.equalsIgnoreCase("completed") ) {
                     if( response.has("response") ) {
@@ -729,21 +720,21 @@ public class RackspaceCloudDNS implements DNSSupport {
                         JSONObject error = response.getJSONObject("error");
                         
                         if( error == null ) {
-                            throw new CloudException("Unknown error");
+                            throw new InternalException("Unknown error");
                         }
                         int code = (error.has("code") ? error.getInt("code") : 418);
                         
                         throw new NovaException(NovaException.parseException(code, error.toString()));
                     }
-                    throw new CloudException("Unknown error");
+                    throw new InternalException("Unknown error");
                 }
             }
             catch( JSONException e ) {
-                throw new CloudException("Invalid JSON from server: " + e.getMessage());
+                throw new CommunicationException("Unable to understand response: " + e.getMessage(), e);
             }
             try { Thread.sleep(CalendarWrapper.SECOND * 30); }
             catch( InterruptedException ignore ) { }
         }
-        throw new CloudException("Operation timed out");
+        throw new GeneralCloudException("Operation timed out", CloudErrorType.GENERAL);
     }
 }

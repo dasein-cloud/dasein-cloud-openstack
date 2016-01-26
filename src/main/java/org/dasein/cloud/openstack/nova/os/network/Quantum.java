@@ -165,9 +165,9 @@ public class Quantum extends AbstractVLANSupport<NovaOpenStack> {
                 // check is the id passed in is actually for a network
                 VLAN vlan = getVlan(subnetId);
                 if (vlan != null) {
-                    throw new CloudException("Cannot launch into the network without a subnet");
+                    throw new InternalException("Cannot launch into the network without a subnet");
                 }
-                throw new CloudException("Invalid id no network or subnet found for " + subnetId);
+                throw new ResourceNotFoundException("Invalid id no network or subnet found for " + subnetId);
             }
             Map<String, Object> wrapper = new HashMap<String,Object>();
             Map<String, Object> json = new HashMap<String,Object>();
@@ -209,11 +209,11 @@ public class Quantum extends AbstractVLANSupport<NovaOpenStack> {
                 }
                 catch( JSONException e ) {
                     logger.error("Unable to understand create response: " + e.getMessage());
-                    throw new CloudException(e);
+                    throw new CommunicationException("Unable to parse the response", e);
                 }
             }
             logger.error("No port was created by the create attempt, and no error was returned");
-            throw new CloudException("No port was created");
+            throw new GeneralCloudException("No port was created", CloudErrorType.GENERAL);
 
         }
         finally {
@@ -243,7 +243,7 @@ public class Quantum extends AbstractVLANSupport<NovaOpenStack> {
                     }
                 } catch (JSONException e) {
                     logger.error("Unable to understand listPorts response: " + e.getMessage());
-                    throw new CloudException(e);
+                    throw new CommunicationException("Unable to understand listPorts response: " + e.getMessage(), e);
                 }
                 return portIds;
             }
@@ -288,7 +288,7 @@ public class Quantum extends AbstractVLANSupport<NovaOpenStack> {
                     }
                 } catch (JSONException e) {
                     logger.error("Unable to understand listPorts response: " + e.getMessage());
-                    throw new CloudException(e);
+                    throw new CommunicationException("Unable to understand listPorts response: " + e.getMessage(), e);
                 }
                 return portIds;
             }
@@ -321,7 +321,7 @@ public class Quantum extends AbstractVLANSupport<NovaOpenStack> {
                     }
                 } catch (JSONException e) {
                     logger.error("Unable to understand listPorts response: " + e.getMessage());
-                    throw new CloudException(e);
+                    throw new CommunicationException("Unable to understand listPorts response: " + e.getMessage(), e);
                 }
                 return portIds;
             }
@@ -342,12 +342,12 @@ public class Quantum extends AbstractVLANSupport<NovaOpenStack> {
             VLAN vlan = getVlan(options.getProviderVlanId());
 
             if( vlan == null ) {
-                throw new CloudException("No such VLAN: " + options.getProviderVlanId());
+                throw new ResourceNotFoundException("No such VLAN: " + options.getProviderVlanId());
             }
 
-            HashMap<String,Object> wrapper = new HashMap<String,Object>();
-            HashMap<String,Object> json = new HashMap<String,Object>();
-            HashMap<String,Object> md = new HashMap<String, Object>();
+            Map<String,Object> wrapper = new HashMap<String,Object>();
+            Map<String,Object> json = new HashMap<String,Object>();
+            Map<String,Object> md = new HashMap<String, Object>();
 
             json.put("name", options.getName());
             json.put("cidr", options.getCidr());
@@ -385,17 +385,17 @@ public class Quantum extends AbstractVLANSupport<NovaOpenStack> {
                     Subnet subnet = toSubnet(result.getJSONObject("subnet"), vlan);
 
                     if( subnet == null ) {
-                        throw new CloudException("No matching subnet was generated from " + ob.toString());
+                        throw new CommunicationException("No matching subnet was generated from " + ob.toString());
                     }
                     return subnet;
                 }
                 catch( JSONException e ) {
                     logger.error("Unable to understand create response: " + e.getMessage());
-                    throw new CloudException(e);
+                    throw new CommunicationException("Unable to understand create response: " + e.getMessage(), e);
                 }
             }
             logger.error("No subnet was created by the create attempt, and no error was returned");
-            throw new CloudException("No subnet was created");
+            throw new GeneralCloudException("No subnet was created", CloudErrorType.GENERAL);
 
         }
         finally {
@@ -447,7 +447,7 @@ public class Quantum extends AbstractVLANSupport<NovaOpenStack> {
                     JSONObject ob = result.getJSONObject("network");
                     VLAN vlan = toVLAN(result.getJSONObject("network"));
                     if( vlan == null ) {
-                        throw new CloudException("No matching network was generated from " + ob.toString());
+                        throw new CommunicationException("No matching network was generated from " + ob.toString());
                     }
                     if( getNetworkType().equals(QuantumType.QUANTUM) && cidr != null ) {
                         createSubnet(SubnetCreateOptions.getInstance(vlan.getProviderVlanId(), cidr, name + "-subnet", "Auto-created subnet"));
@@ -456,11 +456,11 @@ public class Quantum extends AbstractVLANSupport<NovaOpenStack> {
                 }
                 catch( JSONException e ) {
                     logger.error("Unable to understand create response: " + e.getMessage());
-                    throw new CloudException(e);
+                    throw new CommunicationException("Unable to understand create response: " + e.getMessage(), e);
                 }
             }
             logger.error("No VLAN was created by the create attempt, and no error was returned");
-            throw new CloudException("No VLAN was created");
+            throw new GeneralCloudException("No VLAN was created", CloudErrorType.GENERAL);
 
         }
         finally {
@@ -520,22 +520,6 @@ public class Quantum extends AbstractVLANSupport<NovaOpenStack> {
         return type.getSubnetResource();
     }
 
-
-    @Override
-    public @Nonnull String getProviderTermForNetworkInterface(@Nonnull Locale locale) {
-        return "network interface";
-    }
-
-    @Override
-    public @Nonnull String getProviderTermForSubnet(@Nonnull Locale locale) {
-        return "subnet";
-    }
-
-    @Override
-    public @Nonnull String getProviderTermForVlan(@Nonnull Locale locale) {
-        return "network";
-    }
-
     @Override
     public Subnet getSubnet(@Nonnull String subnetId) throws CloudException, InternalException {
         APITrace.begin(getProvider(), "VLAN.getSubnet");
@@ -562,8 +546,7 @@ public class Quantum extends AbstractVLANSupport<NovaOpenStack> {
             }
             catch( JSONException e ) {
                 logger.error("Unable to identify expected values in JSON: " + e.getMessage());
-                e.printStackTrace();
-                throw new CloudException(CloudErrorType.COMMUNICATION, 200, "invalidJson", "Missing JSON element for subnet in " + ob.toString());
+                throw new CommunicationException("Missing JSON element for subnet in " + ob.toString(), e);
             }
             return null;
         }
@@ -597,26 +580,13 @@ public class Quantum extends AbstractVLANSupport<NovaOpenStack> {
             }
             catch( JSONException e ) {
                 logger.error("Unable to identify expected values in JSON: " + e.getMessage());
-                e.printStackTrace();
-                throw new CloudException(CloudErrorType.COMMUNICATION, 200, "invalidJson", "Missing JSON element for networks in " + ob.toString());
+                throw new CommunicationException("Missing JSON element for networks in " + ob.toString(), e);
             }
             return null;
         }
         finally {
             APITrace.end();
         }
-    }
-
-    @Nullable
-    @Override
-    public String getAttachedInternetGatewayId(@Nonnull String vlanId) throws CloudException, InternalException {
-        return null;  //To change body of implemented methods use File | Settings | File Templates.
-    }
-
-    @Nullable
-    @Override
-    public InternetGateway getInternetGatewayById(@Nonnull String gatewayId) throws CloudException, InternalException {
-        return null;  //To change body of implemented methods use File | Settings | File Templates.
     }
 
     @Override
@@ -635,12 +605,6 @@ public class Quantum extends AbstractVLANSupport<NovaOpenStack> {
         finally {
             APITrace.end();
         }
-    }
-
-    @Nonnull
-    @Override
-    public Collection<InternetGateway> listInternetGateways(@Nullable String vlanId) throws CloudException, InternalException {
-        return Collections.emptyList();
     }
 
     protected @Nonnull ComputeServices getServices() throws CloudException, InternalException {
@@ -678,7 +642,7 @@ public class Quantum extends AbstractVLANSupport<NovaOpenStack> {
             if( !getNetworkType().equals(QuantumType.QUANTUM) ) {
                 return Collections.emptyList();
             }
-            JSONObject ob = null;
+            JSONObject ob;
 
             if (getNetworkType().equals(QuantumType.QUANTUM) ) {
                 ob = getMethod().getNetworks(getSubnetResource(), null, false);
@@ -703,8 +667,7 @@ public class Quantum extends AbstractVLANSupport<NovaOpenStack> {
             }
             catch( JSONException e ) {
                 logger.error("Unable to identify expected values in JSON: " + e.getMessage());
-                e.printStackTrace();
-                throw new CloudException(CloudErrorType.COMMUNICATION, 200, "invalidJson", "Missing JSON element for subnets in " + ob.toString());
+                throw new CommunicationException("Missing JSON element for subnets in " + ob.toString(), e);
             }
             return subnets;
         }
@@ -717,7 +680,7 @@ public class Quantum extends AbstractVLANSupport<NovaOpenStack> {
     public @Nonnull Iterable<ResourceStatus> listVlanStatus() throws CloudException, InternalException {
         APITrace.begin(getProvider(), "VLAN.listVlanStatus");
         try {
-            JSONObject ob = null;
+            JSONObject ob;
             if (getNetworkType().equals(QuantumType.QUANTUM) ) {
                 ob = getMethod().getNetworks(getNetworkResource(), null, false);
             }
@@ -746,8 +709,7 @@ public class Quantum extends AbstractVLANSupport<NovaOpenStack> {
             }
             catch( JSONException e ) {
                 logger.error("Unable to identify expected values in JSON: " + e.getMessage());
-                e.printStackTrace();
-                throw new CloudException(CloudErrorType.COMMUNICATION, 200, "invalidJson", "Missing JSON element for networks in " + ob.toString());
+                throw new CommunicationException("Missing JSON element for networks in " + ob.toString(), e);
             }
             return networks;
         }
@@ -787,8 +749,7 @@ public class Quantum extends AbstractVLANSupport<NovaOpenStack> {
             }
             catch( JSONException e ) {
                 logger.error("Unable to identify expected values in JSON: " + e.getMessage());
-                e.printStackTrace();
-                throw new CloudException(CloudErrorType.COMMUNICATION, 200, "invalidJson", "Missing JSON element for networks in " + ob.toString());
+                throw new CommunicationException("Missing JSON element for networks in " + ob.toString(), e);
             }
             return networks;
         }
@@ -899,7 +860,7 @@ public class Quantum extends AbstractVLANSupport<NovaOpenStack> {
             return new ResourceStatus(id, s);
         }
         catch( JSONException e ) {
-            throw new CloudException("Invalid JSON from cloud: " + e.getMessage());
+            throw new CommunicationException("Invalid JSON from cloud: " + e.getMessage(), e);
         }
     }
 
@@ -1030,7 +991,7 @@ public class Quantum extends AbstractVLANSupport<NovaOpenStack> {
             return subnet;
         }
         catch( JSONException e ) {
-            throw new CloudException("Invalid JSON from cloud: " + e.getMessage());
+            throw new CommunicationException("Invalid JSON from cloud: " + e.getMessage(), e);
         }
     }
 
@@ -1130,7 +1091,7 @@ public class Quantum extends AbstractVLANSupport<NovaOpenStack> {
             return v;
         }
         catch( JSONException e ) {
-            throw new CloudException("Invalid JSON from cloud: " + e.getMessage());
+            throw new CommunicationException("Invalid JSON from cloud: " + e.getMessage(), e);
         }
     }
 }

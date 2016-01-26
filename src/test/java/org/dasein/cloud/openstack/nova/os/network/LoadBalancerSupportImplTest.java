@@ -500,11 +500,8 @@ public class LoadBalancerSupportImplTest extends OpenStackTest {
             assertEquals("Query is not correct", "?tenant_id="+ testOwnerId, queryCpt.getValue());
 
         }
-        catch( CloudException e ) {
-            e.printStackTrace();
-        }
-        catch( InternalException e ) {
-            e.printStackTrace();
+        catch( CloudException | InternalException e ) {
+            fail("Test failed " + e.getMessage());
         }
 
     }
@@ -535,11 +532,8 @@ public class LoadBalancerSupportImplTest extends OpenStackTest {
             assertEquals("Query is not correct", "?tenant_id="+ testOwnerId, queryCpt.getValue());
 
         }
-        catch( CloudException e ) {
-            e.printStackTrace();
-        }
-        catch( InternalException e ) {
-            e.printStackTrace();
+        catch( CloudException | InternalException e ) {
+            fail("Test failed " + e.getMessage());
         }
 
     }
@@ -587,13 +581,7 @@ public class LoadBalancerSupportImplTest extends OpenStackTest {
 
 
         }
-        catch( CloudException e ) {
-            fail("Test failed " + e.getMessage());
-        }
-        catch( InternalException e ) {
-            fail("Test failed " + e.getMessage());
-        }
-        catch( JSONException e ) {
+        catch( CloudException | InternalException | JSONException e ) {
             fail("Test failed " + e.getMessage());
         }
 
@@ -643,17 +631,9 @@ public class LoadBalancerSupportImplTest extends OpenStackTest {
 
 
         }
-        catch( CloudException e ) {
+        catch( CloudException | InternalException | JSONException e ) {
             fail("Test failed " + e.getMessage());
         }
-        catch( InternalException e ) {
-            fail("Test failed " + e.getMessage());
-        }
-        catch( JSONException e ) {
-            fail("Test failed " + e.getMessage());
-        }
-
-
     }
 
     @Test
@@ -714,7 +694,6 @@ public class LoadBalancerSupportImplTest extends OpenStackTest {
             assertEquals("LB visible scope is not as expected", VisibleScope.ACCOUNT_REGION, lb.getVisibleScope());
             assertEquals("LB VLAN id should be null", null, lb.getProviderVlanId());
         } catch( JSONException | InternalException | CloudException e ) {
-            e.printStackTrace();
             fail("Test failed " + e.getMessage());
         }
     }
@@ -745,20 +724,10 @@ public class LoadBalancerSupportImplTest extends OpenStackTest {
                     lbSupport.getLoadBalancersResource(), resourceCpt.getAllValues().get(1));
             assertEquals("Resource Id parameter when deleting a loadbalancer was wrong",
                     testLbId, resourceIdCpt.getAllValues().get(1));
-
-
         }
-        catch( CloudException e ) {
-            fail("Test failed " + e.getMessage());
-
-        }
-        catch( InternalException e ) {
+        catch( CloudException | InternalException | JSONException e ) {
             fail("Test failed " + e.getMessage());
         }
-        catch( JSONException e ) {
-            fail("Test failed " + e.getMessage());
-        }
-
     }
 
     @Test
