@@ -1,0 +1,53 @@
+{
+  "image": {
+    "status": "ACTIVE",
+    "updated": "2016-02-08T07:11:42Z",
+    "links": [
+      {
+        "href": "http://nova-osp7/v2/94b7d98054db4d4eb5734e4a370805c7/images/11cdc38b-7d87-4ab9-86bd-19cf33056b81",
+        "rel": "self"
+      },
+      {
+        "href": "http://nova-osp7/94b7d98054db4d4eb5734e4a370805c7/images/11cdc38b-7d87-4ab9-86bd-19cf33056b81",
+        "rel": "bookmark"
+      },
+      {
+        "href": "http://148.9.210.226:9292/images/11cdc38b-7d87-4ab9-86bd-19cf33056b81",
+        "type": "application/vnd.openstack.image",
+        "rel": "alternate"
+      }
+    ],
+    "id": "11cdc38b-7d87-4ab9-86bd-19cf33056b81",
+    "OS-EXT-IMG-SIZE:size": 1653997568,
+    "name": "kstestubu1",
+    "created": "2016-02-08T07:11:03Z",
+    "minDisk": 20,
+    "server": {
+      "id": "405e9abf-82aa-46d2-8c94-6f14d78d0a26",
+      "links": [
+        {
+          "href": "http://nova-osp7/v2/94b7d98054db4d4eb5734e4a370805c7/servers/405e9abf-82aa-46d2-8c94-6f14d78d0a26",
+          "rel": "self"
+        },
+        {
+          "href": "http://nova-osp7/94b7d98054db4d4eb5734e4a370805c7/servers/405e9abf-82aa-46d2-8c94-6f14d78d0a26",
+          "rel": "bookmark"
+        }
+      ]
+    },
+    "progress": 100,
+    "minRam": 0,
+    "metadata": {
+      "org.dasein.platform": "UBUNTU",
+      "image_location": "snapshot",
+      "image_state": "available",
+      "user_id": "e3ea2e865bcd43f59b97dfc76acd0e81",
+      "image_type": "snapshot",
+      "org.dasein.description": "kstestubu1",
+      "base_image_ref": "be75c519-a938-41e1-88bb-2af6d9e9c962",
+      "network_allocated": "True",
+      "instance_uuid": "405e9abf-82aa-46d2-8c94-6f14d78d0a26",
+      "owner_id": "94b7d98054db4d4eb5734e4a370805c7"
+    }
+  }
+}

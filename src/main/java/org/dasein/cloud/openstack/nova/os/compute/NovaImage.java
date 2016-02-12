@@ -58,6 +58,10 @@ public class NovaImage extends AbstractImageSupport<NovaOpenStack> {
         super(provider);
     }
 
+    protected NovaMethod getMethod() {
+        return new NovaMethod(getProvider());
+    }
+
     private @Nonnull String getTenantId() throws CloudException, InternalException {
         return getContext().getAccountNumber();
     }
@@ -65,7 +69,7 @@ public class NovaImage extends AbstractImageSupport<NovaOpenStack> {
     public @Nullable String getImageRef(@Nonnull String machineImageId) throws CloudException, InternalException {
         APITrace.begin(getProvider(), "Image.getImageRef");
         try {
-            NovaMethod method = new NovaMethod(getProvider());
+            NovaMethod method = getMethod();
             JSONObject ob = method.getServers("/images", machineImageId, true);
 
             if( ob == null ) {
@@ -105,8 +109,8 @@ public class NovaImage extends AbstractImageSupport<NovaOpenStack> {
     protected MachineImage capture(@Nonnull ImageCreateOptions options, @Nullable AsynchronousTask<MachineImage> task) throws CloudException, InternalException {
         APITrace.begin(getProvider(), "Image.capture");
         try {
-            NovaMethod method = new NovaMethod(getProvider());
-            Map<String,Object> action = new HashMap<String,Object>();
+            NovaMethod method = getMethod();
+            Map<String,Object> action = new HashMap<>();
 
             action.put("name", options.getName());
             if( task != null ) {
@@ -120,7 +124,7 @@ public class NovaImage extends AbstractImageSupport<NovaOpenStack> {
 
                 while( timeout > System.currentTimeMillis() ) {
                     try {
-                        ComputeServices services = getProvider().getComputeServices();
+                        ComputeServices services = getComputeServices();
                         VirtualMachine vm = null;
 
                         if( services != null ) {
@@ -131,7 +135,7 @@ public class NovaImage extends AbstractImageSupport<NovaOpenStack> {
                             }
                         }
                         if( vm == null ) {
-                            throw new ResourceNotFoundException("No such virtual machine: " + vmId);
+                            throw new ResourceNotFoundException("vm",  vmId);
                         }
                         platform = vm.getPlatform();
                         if( !VmState.PENDING.equals(vm.getCurrentState()) ) {
@@ -220,6 +224,10 @@ public class NovaImage extends AbstractImageSupport<NovaOpenStack> {
         finally {
             APITrace.end();
         }
+    }
+
+    protected ComputeServices getComputeServices() {
+        return getProvider().getComputeServices();
     }
 
     private transient volatile NovaImageCapabilities capabilities;
@@ -441,7 +449,7 @@ public class NovaImage extends AbstractImageSupport<NovaOpenStack> {
                 JSONObject md = (json.has("metadata") ? json.getJSONObject("metadata") : null);
                 Architecture architecture = Architecture.I64;
                 Platform platform = Platform.UNKNOWN;
-                String owner = ((NovaOpenStack)getProvider()).getCloudProvider().getDefaultImageOwner(getTenantId());
+                String owner = getProvider().getCloudProvider().getDefaultImageOwner(getTenantId());
 
                 if( md != null ) {
                     if( description == null && md.has("org.dasein.description") ) {
