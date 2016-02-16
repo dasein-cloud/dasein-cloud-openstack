@@ -52,7 +52,7 @@ import org.json.JSONObject;
 
 public class NovaImage extends AbstractImageSupport<NovaOpenStack> {
     static private final Logger logger = NovaOpenStack.getLogger(NovaImage.class, "std");
-    private static final String SERVICE = "compute";
+    protected static final String SERVICE = "compute";
 
     NovaImage(NovaOpenStack provider) {
         super(provider);
@@ -62,7 +62,7 @@ public class NovaImage extends AbstractImageSupport<NovaOpenStack> {
         return new NovaMethod(getProvider());
     }
 
-    private @Nonnull String getTenantId() throws CloudException, InternalException {
+    protected @Nonnull String getTenantId() throws CloudException, InternalException {
         return getContext().getAccountNumber();
     }
 
@@ -243,7 +243,7 @@ public class NovaImage extends AbstractImageSupport<NovaOpenStack> {
     public MachineImage getImage(@Nonnull String providerImageId) throws CloudException, InternalException {
         APITrace.begin(getProvider(), "Image.getImage");
         try {
-            NovaMethod method = new NovaMethod(getProvider());
+            NovaMethod method = getMethod();
             JSONObject ob = method.getServers("/images", providerImageId, true);
 
             if( ob == null ) {
@@ -302,9 +302,9 @@ public class NovaImage extends AbstractImageSupport<NovaOpenStack> {
             if( !cls.equals(ImageClass.MACHINE) ) {
                 return Collections.emptyList();
             }
-            NovaMethod method = new NovaMethod((NovaOpenStack)getProvider());
+            NovaMethod method = new NovaMethod(getProvider());
             JSONObject ob = method.getServers("/images", null, true);
-            List<ResourceStatus> images = new ArrayList<ResourceStatus>();
+            List<ResourceStatus> images = new ArrayList<>();
 
             try {
                 if( ob != null && ob.has("images") ) {
@@ -377,7 +377,7 @@ public class NovaImage extends AbstractImageSupport<NovaOpenStack> {
     public void remove(@Nonnull String providerImageId, boolean checkState) throws CloudException, InternalException {
         APITrace.begin(getProvider(), "Image.remove");
         try {
-            NovaMethod method = new NovaMethod((NovaOpenStack)getProvider());
+            NovaMethod method = new NovaMethod(getProvider());
             long timeout = System.currentTimeMillis() + CalendarWrapper.HOUR;
 
             do {
@@ -402,9 +402,9 @@ public class NovaImage extends AbstractImageSupport<NovaOpenStack> {
     public @Nonnull Iterable<MachineImage> searchPublicImages(@Nonnull ImageFilterOptions options) throws InternalException, CloudException {
         APITrace.begin(getProvider(), "Image.searchPublicImages");
         try {
-            NovaMethod method = new NovaMethod((NovaOpenStack)getProvider());
+            NovaMethod method = new NovaMethod(getProvider());
             JSONObject ob = method.getServers("/images", null, true);
-            List<MachineImage> images = new ArrayList<MachineImage>();
+            List<MachineImage> images = new ArrayList<>();
             String me = getTenantId();
 
             try {
@@ -431,9 +431,7 @@ public class NovaImage extends AbstractImageSupport<NovaOpenStack> {
         }
     }
 
-    public @Nullable MachineImage toImage(@Nullable JSONObject json) throws CloudException, InternalException {
-        Logger logger = NovaOpenStack.getLogger(NovaImage.class, "std");
-        
+    protected @Nullable MachineImage toImage(@Nullable JSONObject json) throws CloudException, InternalException {
         if( logger.isTraceEnabled() ) {
             logger.trace("enter - " + NovaImage.class.getName() + ".toImage(" + json + ")");
         }
@@ -568,12 +566,12 @@ public class NovaImage extends AbstractImageSupport<NovaOpenStack> {
                         }
                     }
                 }
-                boolean bMinSize = false;
-                if(json.has("minDisk")){
-                    bMinSize = true;
-                    image.setTag("minDisk", json.getString("minDisk"));
+                if( json.has("minDisk") ){
+                    image.setMinimumDiskSizeGb(json.getLong("minDisk"));
                 }
-                if(!bMinSize)if(json.has("OS-EXT-IMG-SIZE:size"))image.setTag("minSize", json.getString("OS-EXT-IMG-SIZE:size"));
+                else if( json.has("OS-EXT-IMG-SIZE:size") ) {
+                    image.setMinimumDiskSizeGb(json.getLong("OS-EXT-IMG-SIZE:size"));
+                }
 
                 return image;
             }
@@ -588,7 +586,7 @@ public class NovaImage extends AbstractImageSupport<NovaOpenStack> {
         }
     }
 
-    public @Nullable ResourceStatus toStatus(@Nullable JSONObject json) throws CloudException, InternalException {
+    protected @Nullable ResourceStatus toStatus(@Nullable JSONObject json) throws CloudException, InternalException {
 
         if( json == null ) {
             return null;
