@@ -156,7 +156,7 @@ public class LoadBalancerSupportImpl extends AbstractLoadBalancerSupport<NovaOpe
                     }
                 }
                 logger.error("create(): Method executed successfully, but no load balancer was found in JSON");
-                throw new ResourceNotFoundException("Method executed successfully, but no load balancer was found in JSON");
+                throw new GeneralCloudException("Method executed successfully, but no load balancer was found in JSON", CloudErrorType.GENERAL);
             }
             catch( JSONException e ) {
                 logger.error("create(): Failed to identify a load balancer ID in the cloud response: " + e.getMessage());

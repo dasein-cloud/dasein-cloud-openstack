@@ -153,7 +153,7 @@ public class CinderVolume extends AbstractVolumeSupport<NovaOpenStack> {
                 }
             }
             logger.error("create(): No volume was created by the create attempt, and no error was returned");
-            throw new ResourceNotFoundException("No volume was created");
+            throw new ResourceNotFoundException("volume", options.getVolumeProductId());
 
         }
         finally {
@@ -168,10 +168,10 @@ public class CinderVolume extends AbstractVolumeSupport<NovaOpenStack> {
             Volume volume = getVolume(volumeId);
 
             if( volume == null ) {
-                throw new ResourceNotFoundException("No such volume: " + volumeId);
+                throw new ResourceNotFoundException("volume", volumeId);
             }
             if( volume.getProviderVirtualMachineId() == null ) {
-                throw new ResourceNotFoundException("Volume " + volumeId + " is not attached");
+                throw new ResourceNotFoundException("Volume ", volumeId + " is not attached");
             }
             NovaMethod method = new NovaMethod(getProvider());
 

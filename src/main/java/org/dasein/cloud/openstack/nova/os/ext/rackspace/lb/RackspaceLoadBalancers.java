@@ -200,7 +200,7 @@ public class RackspaceLoadBalancers extends AbstractLoadBalancerSupport<NovaOpen
                 
                 if( vm == null ) {
                     logger.error("addServers(): Failed to add " + id + " because it does not exist");
-                    throw new ResourceNotFoundException("No such server: " + id);
+                    throw new ResourceNotFoundException("server", id);
                 }
                 String address = null;
                 
@@ -216,7 +216,7 @@ public class RackspaceLoadBalancers extends AbstractLoadBalancerSupport<NovaOpen
                 }
                 if( address == null ) {
                     logger.error("addServers(): No address exists for mapping the load balancer to this server");
-                    throw new ResourceNotFoundException("The virtual machine " + id + " has no mappable addresses");
+                    throw new ResourceNotFoundException("The virtual machine ", id + " has no mappable addresses");
                 }
                 if( logger.isDebugEnabled() ) {
                     logger.debug("addServers(): Mapping IP is: " + address);
@@ -875,14 +875,14 @@ public class RackspaceLoadBalancers extends AbstractLoadBalancerSupport<NovaOpen
             LoadBalancer lb = getLoadBalancer(fromLoadBalancerId);
 
             if( lb == null || LoadBalancerState.TERMINATED.equals(lb.getCurrentState()) ) {
-                throw new ResourceNotFoundException("No such load balancer: " + fromLoadBalancerId);
+                throw new ResourceNotFoundException("load balancer", fromLoadBalancerId);
             }
             while( LoadBalancerState.PENDING.equals(lb.getCurrentState()) ) {
                 try { Thread.sleep(15000L); }
                 catch( InterruptedException ignore ) { }
                 lb = getLoadBalancer(fromLoadBalancerId);
                 if( lb == null || LoadBalancerState.TERMINATED.equals(lb.getCurrentState()) ) {
-                    throw new ResourceNotFoundException("No such load balancer: " + fromLoadBalancerId);
+                    throw new ResourceNotFoundException("load balancer", fromLoadBalancerId);
                 }
             }
 
@@ -916,14 +916,14 @@ public class RackspaceLoadBalancers extends AbstractLoadBalancerSupport<NovaOpen
             LoadBalancer lb = getLoadBalancer(fromLoadBalancerId);
 
             if( lb == null || LoadBalancerState.TERMINATED.equals(lb.getCurrentState()) ) {
-                throw new ResourceNotFoundException("No such load balancer: " + fromLoadBalancerId);
+                throw new ResourceNotFoundException("load balancer", fromLoadBalancerId);
             }
             while( LoadBalancerState.PENDING.equals(lb.getCurrentState()) ) {
                 try { Thread.sleep(15000L); }
                 catch( InterruptedException ignore ) { }
                 lb = getLoadBalancer(fromLoadBalancerId);
                 if( lb == null || LoadBalancerState.TERMINATED.equals(lb.getCurrentState()) ) {
-                    throw new ResourceNotFoundException("No such load balancer: " + fromLoadBalancerId);
+                    throw new ResourceNotFoundException("load balancer", fromLoadBalancerId);
                 }
             }
 

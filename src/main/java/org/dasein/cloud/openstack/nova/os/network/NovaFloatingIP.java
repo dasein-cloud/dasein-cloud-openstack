@@ -87,7 +87,7 @@ public class NovaFloatingIP extends AbstractIpAddressSupport<NovaOpenStack> {
             IpAddress addr = getIpAddress(addressId);
             
             if( addr == null ) {
-                throw new ResourceNotFoundException("No such IP address: " + addressId);
+                throw new ResourceNotFoundException("IP", addressId);
             }
             //action.put("server", serverId);
             action.put("address",addr.getRawAddress().getIpAddress());
@@ -420,7 +420,7 @@ public class NovaFloatingIP extends AbstractIpAddressSupport<NovaOpenStack> {
             IpAddress addr = getIpAddress(addressId);
 
             if( addr == null ) {
-                throw new ResourceNotFoundException("No such IP address: " + addressId);
+                throw new ResourceNotFoundException("IP", addressId);
             }
             String serverId = addr.getServerId();
             

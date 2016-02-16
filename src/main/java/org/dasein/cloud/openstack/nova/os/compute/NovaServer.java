@@ -159,7 +159,7 @@ public class NovaServer extends AbstractVMSupport<NovaOpenStack> {
             VirtualMachine vm = getVirtualMachine(vmId);
 
             if( vm == null ) {
-                throw new ResourceNotFoundException("No such virtual machine: " + vmId);
+                throw new ResourceNotFoundException("vm", vmId);
             }
             Map<String, Object> json = new HashMap<>();
 
@@ -386,7 +386,7 @@ public class NovaServer extends AbstractVMSupport<NovaOpenStack> {
         try {
             MachineImage targetImage = getImage(options.getMachineImageId());
             if( targetImage == null ) {
-                throw new ResourceNotFoundException("No such machine image: " + options.getMachineImageId());
+                throw new ResourceNotFoundException("machine image: ", options.getMachineImageId());
             }
             //Additional LPAR Call
             boolean isBareMetal = isBareMetal(options.getMachineImageId());
@@ -616,7 +616,7 @@ public class NovaServer extends AbstractVMSupport<NovaOpenStack> {
 
                     return listFirewalls(vmId, server);
                 }
-                throw new ResourceNotFoundException("No such server found for " + vmId);
+                throw new ResourceNotFoundException("server", vmId);
             }
             catch( JSONException e ) {
                 logger.error("listFirewalls(): Unable to identify expected values in JSON: " + e.getMessage());
@@ -845,7 +845,7 @@ public class NovaServer extends AbstractVMSupport<NovaOpenStack> {
             VirtualMachine vm = getVirtualMachine(vmId);
 
             if( vm == null ) {
-                throw new ResourceNotFoundException("No such virtual machine found for " + vmId);
+                throw new ResourceNotFoundException("vm", vmId);
             }
             if( !getCapabilities().supportsPause() ) {
                 throw new OperationNotSupportedException("Pause/unpause is not supported in " + getProvider().getCloudName());
@@ -868,7 +868,7 @@ public class NovaServer extends AbstractVMSupport<NovaOpenStack> {
             VirtualMachine vm = getVirtualMachine(vmId);
 
             if( vm == null ) {
-                throw new ResourceNotFoundException("No such virtual machine found for " + vmId);
+                throw new ResourceNotFoundException("vm", vmId);
             }
             if( !getCapabilities().supportsResume() ) {
                 throw new OperationNotSupportedException("Suspend/resume is not supported in " + getProvider().getCloudName());
@@ -891,7 +891,7 @@ public class NovaServer extends AbstractVMSupport<NovaOpenStack> {
             VirtualMachine vm = getVirtualMachine(vmId);
 
             if( vm == null ) {
-                throw new ResourceNotFoundException("No such virtual machine found for " + vmId);
+                throw new ResourceNotFoundException("vm", vmId);
             }
             if( !getCapabilities().supportsStart() ) {
                 throw new OperationNotSupportedException("Start/stop is not supported in " + getProvider().getCloudName());
@@ -914,7 +914,7 @@ public class NovaServer extends AbstractVMSupport<NovaOpenStack> {
             VirtualMachine vm = getVirtualMachine(vmId);
 
             if( vm == null ) {
-                throw new ResourceNotFoundException("No such virtual machine found for " + vmId);
+                throw new ResourceNotFoundException("vm", vmId);
             }
             if( !getCapabilities().supportsStop() ) {
                 throw new OperationNotSupportedException("Start/stop is not supported in " + getProvider().getCloudName());
@@ -937,7 +937,7 @@ public class NovaServer extends AbstractVMSupport<NovaOpenStack> {
             VirtualMachine vm = getVirtualMachine(vmId);
 
             if( vm == null ) {
-                throw new ResourceNotFoundException("No such virtual machine found for " + vmId);
+                throw new ResourceNotFoundException("vm", vmId);
             }
             if( !getCapabilities().supportsSuspend() ) {
                 throw new OperationNotSupportedException("Suspend/resume is not supported in " + getProvider().getCloudName());
@@ -960,7 +960,7 @@ public class NovaServer extends AbstractVMSupport<NovaOpenStack> {
             VirtualMachine vm = getVirtualMachine(vmId);
 
             if( vm == null ) {
-                throw new ResourceNotFoundException("No such virtual machine found for " + vmId);
+                throw new ResourceNotFoundException("vm", vmId);
             }
             if( !getCapabilities().supportsUnPause() ) {
                 throw new OperationNotSupportedException("Pause/unpause is not supported in " + getProvider().getCloudName());

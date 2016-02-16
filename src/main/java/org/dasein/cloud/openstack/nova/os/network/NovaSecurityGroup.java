@@ -100,7 +100,7 @@ public class NovaSecurityGroup extends AbstractFirewallSupport<NovaOpenStack> {
                     Firewall targetGroup = getFirewall(sourceEndpoint.getProviderFirewallId());
 
                     if( targetGroup == null ) {
-                        throw new ResourceNotFoundException("No such source endpoint firewall: " + sourceEndpoint.getProviderFirewallId());
+                        throw new ResourceNotFoundException("firewall", sourceEndpoint.getProviderFirewallId());
                     }
 
                     json.put("group_id",  targetGroup.getProviderFirewallId());
@@ -605,7 +605,7 @@ public class NovaSecurityGroup extends AbstractFirewallSupport<NovaOpenStack> {
                 }
             }
             if( targetRule == null ) {
-                throw new ResourceNotFoundException("No such firewall rule");
+                throw new ResourceNotFoundException("firewall rule", targetRule.getFirewallId());
             }
             revoke(targetRule.getProviderRuleId());
         }

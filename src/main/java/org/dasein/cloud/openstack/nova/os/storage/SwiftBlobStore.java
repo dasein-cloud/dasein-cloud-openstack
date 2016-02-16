@@ -215,7 +215,7 @@ public class SwiftBlobStore extends AbstractBlobStoreSupport<NovaOpenStack> {
         APITrace.begin(getProvider(), "Blob.getObjectSize");
         try {
             if( bucket == null ) {
-                throw new ResourceNotFoundException("No such object: " + bucket );
+                throw new ResourceNotFoundException("No such object: ", bucket );
             }
             if( object == null ) {
                 return null;
@@ -288,7 +288,7 @@ public class SwiftBlobStore extends AbstractBlobStoreSupport<NovaOpenStack> {
         APITrace.begin(getProvider(), "Blob.get");
         try {
             if( bucket == null ) {
-                throw new ResourceNotFoundException("No such object: " + bucket + "/" + location);
+                throw new ResourceNotFoundException("No such object: ", bucket + "/" + location);
             }
             if( toFile.exists() ) {
                 if( !toFile.delete() ) {
@@ -300,7 +300,7 @@ public class SwiftBlobStore extends AbstractBlobStoreSupport<NovaOpenStack> {
 
             input = method.get(bucket, location);
             if( input == null ) {
-                throw new ResourceNotFoundException("No such object: " + bucket + "/" + location);
+                throw new ResourceNotFoundException("No such object: ", bucket + "/" + location);
             }
             try {
                 copy(input, new FileOutputStream(toFile), transfer);

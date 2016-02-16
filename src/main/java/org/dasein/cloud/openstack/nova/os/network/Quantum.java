@@ -167,7 +167,7 @@ public class Quantum extends AbstractVLANSupport<NovaOpenStack> {
                 if (vlan != null) {
                     throw new InternalException("Cannot launch into the network without a subnet");
                 }
-                throw new ResourceNotFoundException("Invalid id no network or subnet found for " + subnetId);
+                throw new ResourceNotFoundException("subnet", subnetId);
             }
             Map<String, Object> wrapper = new HashMap<String,Object>();
             Map<String, Object> json = new HashMap<String,Object>();
@@ -342,7 +342,7 @@ public class Quantum extends AbstractVLANSupport<NovaOpenStack> {
             VLAN vlan = getVlan(options.getProviderVlanId());
 
             if( vlan == null ) {
-                throw new ResourceNotFoundException("No such VLAN: " + options.getProviderVlanId());
+                throw new ResourceNotFoundException("VLAN: ", options.getProviderVlanId());
             }
 
             Map<String,Object> wrapper = new HashMap<String,Object>();
