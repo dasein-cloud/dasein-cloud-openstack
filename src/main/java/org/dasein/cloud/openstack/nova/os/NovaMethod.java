@@ -20,9 +20,7 @@
 package org.dasein.cloud.openstack.nova.os;
 
 import org.apache.http.HttpStatus;
-import org.dasein.cloud.CloudErrorType;
-import org.dasein.cloud.CloudException;
-import org.dasein.cloud.InternalException;
+import org.dasein.cloud.*;
 import org.dasein.cloud.openstack.nova.os.ext.hp.cdn.HPCDN;
 import org.dasein.cloud.util.Cache;
 import org.dasein.cloud.util.CacheLevel;
@@ -36,15 +34,17 @@ import javax.annotation.Nullable;
 import java.util.HashMap;
 import java.util.Map;
 
+import org.dasein.cloud.openstack.nova.os.*;
+
 public class NovaMethod extends AbstractMethod {
     public NovaMethod(NovaOpenStack provider) { super(provider); }
     
     public void deleteServers(@Nonnull final String resource, @Nonnull final String resourceId) throws CloudException, InternalException {
-        AuthenticationContext context = provider.getAuthenticationContext();
+        AuthenticationContext context = getAuthenticationContext();
         String endpoint = context.getComputeUrl();
         
         if( endpoint == null ) {
-            throw new CloudException("No compute endpoint exists");
+            throw new InternalException("No compute endpoint exists");
         }
         try {
             delete(context.getAuthToken(), endpoint, resource + "/" + resourceId);
@@ -62,11 +62,11 @@ public class NovaMethod extends AbstractMethod {
     }
 
     public void deleteNetworks(@Nonnull final String resource, @Nonnull final String resourceId) throws CloudException, InternalException {
-        AuthenticationContext context = provider.getAuthenticationContext();
+        AuthenticationContext context = getAuthenticationContext();
         String endpoint = context.getNetworkUrl();
 
         if( endpoint == null ) {
-            throw new CloudException("No network endpoint exists");
+            throw new InternalException("No network endpoint exists");
         }
         if (resource != null && (!endpoint.endsWith("/") && !resource.startsWith("/"))) {
             endpoint = endpoint+"/";
@@ -87,11 +87,11 @@ public class NovaMethod extends AbstractMethod {
     }
 
     public @Nullable JSONObject getPorts(@Nonnull final String resource, @Nonnull final String resourceId) throws CloudException, InternalException {
-        AuthenticationContext context = provider.getAuthenticationContext();
+        AuthenticationContext context = getAuthenticationContext();
         String endpoint = context.getComputeUrl();
 
         if( endpoint == null ) {
-            throw new CloudException("No compute URL has been established in " + context.getMyRegion());
+            throw new InternalException("No compute URL has been established in " + context.getMyRegion());
         }
         String resourceUri = resource;
         if( resourceId != null ) {
@@ -108,7 +108,7 @@ public class NovaMethod extends AbstractMethod {
                 return new JSONObject(response);
             }
             catch( JSONException e ) {
-                throw new CloudException(CloudErrorType.COMMUNICATION, 200, "invalidJson", response);
+                throw new CommunicationException("Unable to understand getPorts response: " + e.getMessage(), e);
             }
         }
         catch (NovaException ex) {
@@ -122,13 +122,17 @@ public class NovaMethod extends AbstractMethod {
             }
         }
     }
-    
+
+    public AuthenticationContext getAuthenticationContext() throws CloudException, InternalException {
+        return provider.getAuthenticationContext();
+    }
+
     public @Nullable JSONObject getServers(@Nonnull final String resource, @Nullable final String resourceId, final boolean suffix) throws CloudException, InternalException {
-        AuthenticationContext context = provider.getAuthenticationContext();
+        AuthenticationContext context = getAuthenticationContext();
         String endpoint = context.getComputeUrl();
         
         if( endpoint == null ) {
-            throw new CloudException("No compute URL has been established in " + context.getMyRegion());
+            throw new InternalException("No compute URL has been established in " + context.getMyRegion());
         }
         String resourceUri = resource; // make a copy in case we need to retry with the original resource
         if( resourceId != null ) {
@@ -147,7 +151,7 @@ public class NovaMethod extends AbstractMethod {
                 return new JSONObject(response);
             }
             catch( JSONException e ) {
-                throw new CloudException(CloudErrorType.COMMUNICATION, 200, "invalidJson", response);
+                throw new CommunicationException("Unable to understand getServers response: " + e.getMessage(), e);
             }
         }
         catch (NovaException ex) {
@@ -167,11 +171,11 @@ public class NovaMethod extends AbstractMethod {
     }
 
     public @Nullable JSONObject getNetworks(@Nonnull final String resource, @Nullable final String resourceId, final boolean suffix, final String query) throws CloudException, InternalException {
-        AuthenticationContext context = provider.getAuthenticationContext();
+        AuthenticationContext context = getAuthenticationContext();
         String endpoint = context.getNetworkUrl();
 
         if( endpoint == null ) {
-            throw new CloudException("No network URL has been established in " + context.getMyRegion());
+            throw new InternalException("No network URL has been established in " + context.getMyRegion());
         }
         String resourceUri = resource; // make a copy in case we need to retry with the original resource
         if( resourceId != null ) {
@@ -196,7 +200,7 @@ public class NovaMethod extends AbstractMethod {
                 return new JSONObject(response);
             }
             catch( JSONException e ) {
-                throw new CloudException(CloudErrorType.COMMUNICATION, 200, "invalidJson", response);
+                throw new CommunicationException("Unable to understand getNetworks response: " + e.getMessage(), e);
             }
         }
         catch (NovaException ex) {
@@ -212,7 +216,7 @@ public class NovaMethod extends AbstractMethod {
     }
 
     public @Nullable String postServersForString(@Nonnull final String resource, @Nullable final String resourceId, @Nonnull final JSONObject body, final boolean suffix) throws CloudException, InternalException {
-        AuthenticationContext context = provider.getAuthenticationContext();
+        AuthenticationContext context = getAuthenticationContext();
 
         String resourceUri = resource;
         if( resourceId != null ) {
@@ -221,7 +225,7 @@ public class NovaMethod extends AbstractMethod {
         String computeEndpoint = context.getComputeUrl();
 
         if( computeEndpoint == null ) {
-            throw new CloudException("No compute endpoint exists");
+            throw new InternalException("No compute endpoint exists");
         }
         try {
             return postString(context.getAuthToken(), computeEndpoint, resourceUri, body.toString());
@@ -239,7 +243,7 @@ public class NovaMethod extends AbstractMethod {
     }
 
     public @Nullable JSONObject postServers(@Nonnull final String resource, @Nullable final String resourceId, @Nonnull final JSONObject body, final boolean suffix) throws CloudException, InternalException {
-        AuthenticationContext context = provider.getAuthenticationContext();
+        AuthenticationContext context = getAuthenticationContext();
 
         String resourceUri = resource;
         if( resourceId != null ) {
@@ -248,7 +252,7 @@ public class NovaMethod extends AbstractMethod {
         String computeEndpoint = context.getComputeUrl();
         
         if( computeEndpoint == null ) {
-            throw new CloudException("No compute endpoint exists");
+            throw new InternalException("No compute endpoint exists");
         }
         try {
             String response = postString(context.getAuthToken(), computeEndpoint, resourceUri, body.toString());
@@ -260,7 +264,7 @@ public class NovaMethod extends AbstractMethod {
                 return new JSONObject(response);
             }
             catch( JSONException e ) {
-                throw new CloudException(CloudErrorType.COMMUNICATION, 200, "invalidJson", response);
+                throw new CommunicationException("Unable to understand postServers response: " + e.getMessage(), e);
             }
         }
         catch (NovaException ex) {
@@ -276,7 +280,7 @@ public class NovaMethod extends AbstractMethod {
     }
 
     public @Nullable JSONObject postNetworks(@Nonnull final String resource, @Nullable final String resourceId, @Nonnull final JSONObject body, @Nullable final String action) throws CloudException, InternalException {
-        AuthenticationContext context = provider.getAuthenticationContext();
+        AuthenticationContext context = getAuthenticationContext();
 
         String resourceUri = resource;
         if( resourceId != null ) {
@@ -285,7 +289,7 @@ public class NovaMethod extends AbstractMethod {
         String endpoint = context.getNetworkUrl();
 
         if( endpoint == null ) {
-            throw new CloudException("No network endpoint exists");
+            throw new InternalException("No network endpoint exists");
         }
 
         if (resourceUri != null && (!endpoint.endsWith("/") && !resourceUri.startsWith("/"))) {
@@ -301,7 +305,7 @@ public class NovaMethod extends AbstractMethod {
                 return new JSONObject(response);
             }
             catch( JSONException e ) {
-                throw new CloudException(CloudErrorType.COMMUNICATION, 200, "invalidJson", response);
+                throw new CommunicationException("Unable to understand postNetworks response: " + e.getMessage(), e);
             }
         }
         catch (NovaException ex) {
@@ -317,7 +321,7 @@ public class NovaMethod extends AbstractMethod {
     }
 
     public @Nullable JSONObject putNetworks(@Nonnull final String resource, @Nullable final String resourceId, @Nonnull final JSONObject body, final String action) throws CloudException, InternalException {
-        AuthenticationContext context = provider.getAuthenticationContext();
+        AuthenticationContext context = getAuthenticationContext();
 
         String resourceUri = resource;
         if( resourceId != null ) {
@@ -326,7 +330,7 @@ public class NovaMethod extends AbstractMethod {
         String endpoint = context.getNetworkUrl();
 
         if( endpoint == null ) {
-            throw new CloudException("No network endpoint exists");
+            throw new InternalException("No network endpoint exists");
         }
 
         if (resourceUri != null && (!endpoint.endsWith("/") && !resourceUri.startsWith("/"))) {
@@ -342,7 +346,7 @@ public class NovaMethod extends AbstractMethod {
                 return new JSONObject(response);
             }
             catch( JSONException e ) {
-                throw new CloudException(CloudErrorType.COMMUNICATION, 200, "invalidJson", response);
+                throw new CommunicationException("Unable to understand putNetworks response: " + e.getMessage(), e);
             }
         }
         catch (NovaException ex) {
@@ -362,11 +366,11 @@ public class NovaMethod extends AbstractMethod {
     }
 
     public @Nullable String getHPCDN(@Nullable final String resourceId) throws CloudException, InternalException {
-        AuthenticationContext context = provider.getAuthenticationContext();
+        AuthenticationContext context = getAuthenticationContext();
         String endpoint = context.getServiceUrl(HPCDN.SERVICE);
 
         if( endpoint == null ) {
-            throw new CloudException("No CDN URL has been established in " + context.getMyRegion());
+            throw new InternalException("No CDN URL has been established in " + context.getMyRegion());
         }
         try {
             return getString(context.getAuthToken(), endpoint, resourceId == null ? "" : ("/" + resourceId));
@@ -385,11 +389,11 @@ public class NovaMethod extends AbstractMethod {
     
     public void putHPCDN(final String container) throws CloudException, InternalException {
         Map<String,String> headers = new HashMap<String, String>();
-        AuthenticationContext context = provider.getAuthenticationContext();
+        AuthenticationContext context = getAuthenticationContext();
         String endpoint = context.getServiceUrl(HPCDN.SERVICE);
 
         if( endpoint == null ) {
-            throw new CloudException("No CDN URL has been established in " + context.getMyRegion());
+            throw new InternalException("No CDN URL has been established in " + context.getMyRegion());
         }
         if( container == null ) {
             throw new InternalException("No container was specified");
@@ -400,7 +404,7 @@ public class NovaMethod extends AbstractMethod {
         
             headers = headResource(HPCDN.SERVICE, HPCDN.RESOURCE, container);
             if( headers == null ) {
-                throw new CloudException("No container enabled");
+                throw new InternalException("No container enabled");
             }
         }
         catch (NovaException ex) {
@@ -416,11 +420,11 @@ public class NovaMethod extends AbstractMethod {
     }
 
     public void postHPCDN(@Nonnull final String container, @Nonnull final Map<String,String> headers) throws CloudException, InternalException {
-        AuthenticationContext context = provider.getAuthenticationContext();
+        AuthenticationContext context = getAuthenticationContext();
         String endpoint = context.getServiceUrl(HPCDN.SERVICE);
 
         if( endpoint == null ) {
-            throw new CloudException("No CDN URL has been established in " + context.getMyRegion());
+            throw new InternalException("No CDN URL has been established in " + context.getMyRegion());
         }
         if( container == null ) {
             throw new InternalException("No container was specified");
@@ -441,11 +445,11 @@ public class NovaMethod extends AbstractMethod {
     }
     
     public void deleteHPCDN(@Nonnull final String container) throws CloudException, InternalException {
-        AuthenticationContext context = provider.getAuthenticationContext();
+        AuthenticationContext context = getAuthenticationContext();
         String endpoint = context.getServiceUrl(HPCDN.SERVICE);
 
         if( endpoint == null ) {
-            throw new CloudException("No CDN URL has been established in " + context.getMyRegion());
+            throw new InternalException("No CDN URL has been established in " + context.getMyRegion());
         }
         try {
             delete(context.getAuthToken(), endpoint, "/" + container);

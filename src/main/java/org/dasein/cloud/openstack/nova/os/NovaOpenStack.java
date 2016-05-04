@@ -33,13 +33,7 @@ import javax.annotation.Nullable;
 
 import org.apache.http.HttpStatus;
 import org.apache.log4j.Logger;
-import org.dasein.cloud.AbstractCloud;
-import org.dasein.cloud.CloudErrorType;
-import org.dasein.cloud.CloudException;
-import org.dasein.cloud.ContextRequirements;
-import org.dasein.cloud.InternalException;
-import org.dasein.cloud.ProviderContext;
-import org.dasein.cloud.Tag;
+import org.dasein.cloud.*;
 import org.dasein.cloud.openstack.nova.os.compute.NovaComputeServices;
 import org.dasein.cloud.openstack.nova.os.ext.hp.HPPlatformServices;
 import org.dasein.cloud.openstack.nova.os.ext.rackspace.RackspacePlatformServices;
@@ -108,7 +102,7 @@ public class NovaOpenStack extends AbstractCloud {
             ProviderContext ctx = getContext();
 
             if( ctx == null ) {
-                throw new CloudException("No context was set for this request");
+                throw new InternalException("No context was set for this request");
             }
             Iterable<AuthenticationContext> current = cache.get(ctx);
             AuthenticationContext authenticationContext = null;
@@ -201,11 +195,9 @@ public class NovaOpenStack extends AbstractCloud {
                 }
             }
             catch( CloudException e ) {
-                e.printStackTrace();
                 return null;
             }
             catch( InternalException e ) {
-                e.printStackTrace();
                 return null;
             }
             return new SwiftStorageServices(this);
@@ -349,7 +341,7 @@ public class NovaOpenStack extends AbstractCloud {
         return (getMajorVersion() > 1 || getMinorVersion() > 0);
     }
     
-    static public long parseTimestamp(String time) throws CloudException {
+    static public long parseTimestamp(String time) throws InternalException {
         if( time == null ) {
             return 0L;
         }
@@ -381,7 +373,7 @@ public class NovaOpenStack extends AbstractCloud {
                                 return fmt.parse(time).getTime();
                             }
                             catch( ParseException because ) {
-                                throw new CloudException("Could not parse date: " + time);
+                                throw new InternalException("Could not parse date: " + time);
                             }
                         }
                     }

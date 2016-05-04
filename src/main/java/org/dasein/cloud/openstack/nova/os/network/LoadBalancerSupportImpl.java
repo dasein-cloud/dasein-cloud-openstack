@@ -3,9 +3,7 @@ package org.dasein.cloud.openstack.nova.os.network;
 import org.apache.commons.net.util.SubnetUtils;
 import org.apache.http.HttpStatus;
 import org.apache.log4j.Logger;
-import org.dasein.cloud.CloudException;
-import org.dasein.cloud.InternalException;
-import org.dasein.cloud.ResourceStatus;
+import org.dasein.cloud.*;
 import org.dasein.cloud.compute.VirtualMachine;
 import org.dasein.cloud.network.*;
 import org.dasein.cloud.openstack.nova.os.NovaException;
@@ -95,7 +93,7 @@ public class LoadBalancerSupportImpl extends AbstractLoadBalancerSupport<NovaOpe
 
             lb.put("name", options.getName());
             lb.put("description", options.getDescription());
-            lb.put("tenant_id", getContext().getAccountNumber());
+            lb.put("tenant_id", getAccountNumber());
             String subnetId;
             // The subnet selection logic below is a bit iffy, but it will do for the first pass
             if( options.getProviderSubnetIds() != null && options.getProviderSubnetIds().length > 0 ) {
@@ -123,16 +121,15 @@ public class LoadBalancerSupportImpl extends AbstractLoadBalancerSupport<NovaOpe
 
             Map<String,Object> json = new HashMap<String,Object>();
             json.put("pool", lb);
-            NovaMethod method = new NovaMethod(getProvider());
 
             if( logger.isTraceEnabled() ) {
                 logger.trace("create(): Posting new load balancer data...");
             }
-            JSONObject result = method.postNetworks(getLoadBalancersResource(), null, new JSONObject(json), false);
+            JSONObject result = getMethod().postNetworks(getLoadBalancersResource(), null, new JSONObject(json), false);
 
             if( result == null ) {
                 logger.error("create(): Method executed successfully, but no load balancer was created");
-                throw new CloudException("Method executed successfully, but no load balancer was created");
+                throw new GeneralCloudException("No loadbalancer was created", CloudErrorType.GENERAL);
             }
             try{
                 if( result.has("pool") ) {
@@ -143,8 +140,9 @@ public class LoadBalancerSupportImpl extends AbstractLoadBalancerSupport<NovaOpe
                             createListener(lbId, subnetId, listener);
                         }
                         catch ( Throwable e ) {
-                            method.deleteNetworks(getLoadBalancersResource(), lbId);
-                            throw new CloudException(e);
+                            getMethod().deleteNetworks(getLoadBalancersResource(), lbId);
+                            throw new GeneralCloudException("No listener was created", CloudErrorType.GENERAL);
+
                         }
                         if( options.getEndpoints() != null ) {
                             for( LoadBalancerEndpoint endpoint : options.getEndpoints() ) {
@@ -158,11 +156,12 @@ public class LoadBalancerSupportImpl extends AbstractLoadBalancerSupport<NovaOpe
                     }
                 }
                 logger.error("create(): Method executed successfully, but no load balancer was found in JSON");
-                throw new CloudException("Method executed successfully, but no load balancer was found in JSON");
+                throw new GeneralCloudException("Method executed successfully, but no load balancer was found in JSON", CloudErrorType.GENERAL);
             }
             catch( JSONException e ) {
                 logger.error("create(): Failed to identify a load balancer ID in the cloud response: " + e.getMessage());
-                throw new CloudException("Failed to identify a load balancer ID in the cloud response: " + e.getMessage());
+                throw new CommunicationException("Failed to identify a load balancer ID in the cloud response: " + e.getMessage(), e);
+
             }
         }
         finally {
@@ -172,10 +171,9 @@ public class LoadBalancerSupportImpl extends AbstractLoadBalancerSupport<NovaOpe
 
     @Override
     public @Nonnull Iterable<ResourceStatus> listLoadBalancerStatus() throws CloudException, InternalException {
-        NovaMethod method = new NovaMethod(getProvider());
         // Unlike Horizon the OS LB API returns all tenants' load balancers, so we must filter
-        JSONObject result = method.getNetworks(getLoadBalancersResource(), null, false,
-                "?tenant_id="+getContext().getAccountNumber() + "&fields=id&fields=status");
+        JSONObject result = getMethod().getNetworks(getLoadBalancersResource(), null, false,
+                "?tenant_id="+ getAccountNumber() + "&fields=id&fields=status");
         List<ResourceStatus> results = new ArrayList<ResourceStatus>();
         if( result != null && result.has("pools") ) {
             try {
@@ -186,7 +184,8 @@ public class LoadBalancerSupportImpl extends AbstractLoadBalancerSupport<NovaOpe
                 }
             }
             catch( JSONException e ) {
-                throw new CloudException("Unable to parse list load balancers response", e);
+                throw new CommunicationException("Unable to parse list load balancers response" + e.getMessage(), e);
+
             }
         }
         return results;
@@ -263,28 +262,35 @@ public class LoadBalancerSupportImpl extends AbstractLoadBalancerSupport<NovaOpe
 //        addIPEndpoints(toLoadBalancerId, ipAddressesToAdd.toArray(new String[ipAddressesToAdd.size()]));
 //    }
 
+    protected NovaMethod getMethod() {
+        return new NovaMethod(getProvider());
+    }
+
     @Override
     public void removeIPEndpoints(@Nonnull String fromLoadBalancerId, @Nonnull String... addresses) throws CloudException, InternalException {
-        NovaMethod method = new NovaMethod(getProvider());
         for( JSONObject member : findAllMembers(fromLoadBalancerId) ) {
             for( String address : addresses ) {
                 try {
                     if( address.equals(member.getString("address")) ) {
-                        method.deleteNetworks(getMembersResource(), member.getString("id"));
+                        getMethod().deleteNetworks(getMembersResource(), member.getString("id"));
                     }
                 }
                 catch( JSONException e ) {
-                    e.printStackTrace();
+                    throw new CommunicationException("Unable to parse response", e);
                 }
             }
         }
     }
 
+    protected VirtualMachine getVirtualMachine(String serverId) throws CloudException, InternalException {
+        return getProvider().getComputeServices().getVirtualMachineSupport().getVirtualMachine(serverId);
+    }
+
     @Override
     public void removeServers(@Nonnull String fromLoadBalancerId, @Nonnull String... serverIdsToRemove) throws CloudException, InternalException {
-        List<String> ipAddressesToRemove = new ArrayList<String>();
+        List<String> ipAddressesToRemove = new ArrayList<>();
         for( String serverId : serverIdsToRemove ) {
-            VirtualMachine vm = getProvider().getComputeServices().getVirtualMachineSupport().getVirtualMachine(serverId);
+            VirtualMachine vm = getVirtualMachine(serverId);
             if( vm != null ) {
                 for( RawAddress address : vm.getPrivateAddresses() ) {
                     ipAddressesToRemove.add(address.getIpAddress());
@@ -316,15 +322,15 @@ public class LoadBalancerSupportImpl extends AbstractLoadBalancerSupport<NovaOpe
             Map<String, Object> json = new HashMap<String, Object>();
 
             json.put("health_monitor", lb);
-            NovaMethod method = new NovaMethod(getProvider());
 
             if( logger.isTraceEnabled() ) {
                 logger.trace("create(): Posting health monitor id to attach...");
             }
-            JSONObject result = method.postNetworks(getLoadBalancersResource(), providerLoadBalancerId, new JSONObject(json), "health_monitors");
+            JSONObject result = getMethod().postNetworks(getLoadBalancersResource(), providerLoadBalancerId, new JSONObject(json), "health_monitors");
             if( result == null ) {
                 logger.error("create(): Method executed successfully, but no health monitor was attached");
-                throw new CloudException("Method executed successfully, but no health monitor was attached");
+                throw new GeneralCloudException("Method executed successfully, but no health monitor was attached", CloudErrorType.GENERAL);
+
             }
         }
         finally {
@@ -336,8 +342,7 @@ public class LoadBalancerSupportImpl extends AbstractLoadBalancerSupport<NovaOpe
     public Iterable<LoadBalancerHealthCheck> listLBHealthChecks(@Nullable HealthCheckFilterOptions opts) throws CloudException, InternalException {
         APITrace.begin(getProvider(), "LB.listLBHealthChecks");
         try {
-            NovaMethod method = new NovaMethod(getProvider());
-            JSONObject result = method.getNetworks(getHealthMonitorsResource(), null, false);
+            JSONObject result = getMethod().getNetworks(getHealthMonitorsResource(), null, false);
             List<LoadBalancerHealthCheck> healthMonitors = new ArrayList<LoadBalancerHealthCheck>();
             if( result != null && result.has("health_monitors") ) {
                 try {
@@ -351,7 +356,7 @@ public class LoadBalancerSupportImpl extends AbstractLoadBalancerSupport<NovaOpe
                 }
                 catch( JSONException e ) {
                     logger.error("Unable to identify expected values in JSON:" + e.getMessage());
-                    throw new CloudException(e);
+                    throw new CommunicationException("Unable to identify expected values in JSON: " + e.getMessage(), e);
                 }
             }
             return healthMonitors;
@@ -366,19 +371,20 @@ public class LoadBalancerSupportImpl extends AbstractLoadBalancerSupport<NovaOpe
     public LoadBalancerHealthCheck getLoadBalancerHealthCheck(@Nonnull String providerLBHealthCheckId, /* ignored */ @Nullable String providerLoadBalancerId) throws CloudException, InternalException {
         APITrace.begin(getProvider(), "LB.getLoadBalancerHealthCheck");
         try {
-            NovaMethod method = new NovaMethod(getProvider());
 
-            JSONObject result = method.getNetworks(getHealthMonitorsResource(), providerLBHealthCheckId, false);
+            JSONObject result = getMethod().getNetworks(getHealthMonitorsResource(), providerLBHealthCheckId, false);
 
             if( result == null ) {
                 logger.error("create(): Method executed successfully, but no health monitor was found");
-                throw new CloudException("Method executed successfully, but no health monitor was found");
+                throw new GeneralCloudException("Method executed successfully, but no health monitor was found", CloudErrorType.GENERAL);
+
             }
             try {
                 return toLoadBalancerHealthCheck(result.getJSONObject("health_monitor"));
             }
             catch( JSONException e ) {
-                throw new CloudException("Unable to parse a health check object", e);
+                throw new CommunicationException("Unable to parse a health check object " + e.getMessage(), e);
+
             }
         }
         finally {
@@ -401,7 +407,7 @@ public class LoadBalancerSupportImpl extends AbstractLoadBalancerSupport<NovaOpe
         }
     }
 
-    private void safeDeleteLoadBalancerHealthCheck(LoadBalancerHealthCheck hc) throws CloudException, InternalException {
+    protected void safeDeleteLoadBalancerHealthCheck(LoadBalancerHealthCheck hc) throws CloudException, InternalException {
         for( String loadBalancer: hc.getProviderLoadBalancerIds() ) {
             detatchHealthCheck(loadBalancer, hc.getProviderLBHealthCheckId());
         }
@@ -429,12 +435,12 @@ public class LoadBalancerSupportImpl extends AbstractLoadBalancerSupport<NovaOpe
         }
     }
 
-    private LoadBalancerHealthCheck createHealthMonitor(@Nonnull List<String> loadbalancerIds, @Nonnull HealthCheckOptions opt) throws InternalException, CloudException {
+    protected LoadBalancerHealthCheck createHealthMonitor(@Nonnull List<String> loadbalancerIds, @Nonnull HealthCheckOptions opt) throws InternalException, CloudException {
         APITrace.begin(getProvider(), "LB.createListener");
 
         try {
             Map<String, Object> lb = new HashMap<String, Object>();
-            lb.put("tenant_id", getContext().getAccountNumber());
+            lb.put("tenant_id", getAccountNumber());
             lb.put("type", toOSHCType(opt.getProtocol()));
             lb.put("delay", opt.getInterval());
             lb.put("timeout", opt.getTimeout());
@@ -446,20 +452,20 @@ public class LoadBalancerSupportImpl extends AbstractLoadBalancerSupport<NovaOpe
             Map<String, Object> json = new HashMap<String, Object>();
 
             json.put("health_monitor", lb);
-            NovaMethod method = new NovaMethod(getProvider());
 
             if( logger.isTraceEnabled() ) {
                 logger.trace("create(): Posting new health monitor data...");
             }
-            JSONObject result = method.postNetworks(getHealthMonitorsResource(), null, new JSONObject(json), null);
+            JSONObject result = getMethod().postNetworks(getHealthMonitorsResource(), null, new JSONObject(json), null);
 
             if( result == null ) {
                 logger.error("create(): Method executed successfully, but no health monitor was created");
-                throw new CloudException("Method executed successfully, but no health monitor was created");
+                throw new GeneralCloudException("Method executed successfully, but no health monitor was created", CloudErrorType.GENERAL);
+
             }
             LoadBalancerHealthCheck hc = toLoadBalancerHealthCheck(result.getJSONObject("health_monitor"));
             if( hc == null ) {
-                throw new CloudException("Unable to create loadbalancer health check");
+                throw new GeneralCloudException("Unable to create loadbalancer health check" , CloudErrorType.GENERAL);
             }
             for( String lbId : loadbalancerIds ) {
                 attachHealthCheckToLoadBalancer(lbId, hc.getProviderLBHealthCheckId());
@@ -467,7 +473,8 @@ public class LoadBalancerSupportImpl extends AbstractLoadBalancerSupport<NovaOpe
             return hc;
         }
         catch( JSONException e ) {
-            throw new CloudException("Unable to parse create health monitor response", e);
+            throw new CommunicationException("Unable to parse create health monitor response" + e.getMessage(), e);
+
         }
         finally {
             APITrace.end();
@@ -475,10 +482,18 @@ public class LoadBalancerSupportImpl extends AbstractLoadBalancerSupport<NovaOpe
 
     }
 
-    private void deleteHealthMonitor(String providerLBHealthCheckId) throws CloudException, InternalException {
+    protected String getAccountNumber() throws InternalException {
+        return getContext().getAccountNumber();
+    }
+
+    protected String getCurrentRegionId() throws InternalException {
+        return getContext().getRegionId();
+    }
+
+    protected void deleteHealthMonitor(String providerLBHealthCheckId) throws CloudException, InternalException {
         APITrace.begin(getProvider(), "LB.deleteHealthMonitor");
         try {
-            new NovaMethod(getProvider()).deleteNetworks(getHealthMonitorsResource(), providerLBHealthCheckId);
+            getMethod().deleteNetworks(getHealthMonitorsResource(), providerLBHealthCheckId);
         }
         finally {
             APITrace.end();
@@ -491,7 +506,7 @@ public class LoadBalancerSupportImpl extends AbstractLoadBalancerSupport<NovaOpe
      * @return LoadBalancerHealthCheck
      * @throws JSONException
      */
-    private @Nonnull LoadBalancerHealthCheck toLoadBalancerHealthCheck(JSONObject ob) throws JSONException, InternalException, CloudException {
+    protected @Nonnull LoadBalancerHealthCheck toLoadBalancerHealthCheck(JSONObject ob) throws JSONException, InternalException, CloudException {
         LoadBalancerHealthCheck.HCProtocol protocol = fromOSProtocol(ob.getString("type"));
         int count = ob.getInt("max_retries");
         int port = -1;
@@ -518,7 +533,7 @@ public class LoadBalancerSupportImpl extends AbstractLoadBalancerSupport<NovaOpe
         return lbhc;
     }
 
-    private String toOSHCType(LoadBalancerHealthCheck.HCProtocol hcProtocol) {
+    protected String toOSHCType(LoadBalancerHealthCheck.HCProtocol hcProtocol) {
         switch( hcProtocol ) {
             case TCP:
                 return "TCP";
@@ -529,7 +544,7 @@ public class LoadBalancerSupportImpl extends AbstractLoadBalancerSupport<NovaOpe
         }
     }
 
-    private void createListener(@Nonnull String lbId, String subnetId, @Nonnull LbListener listener) throws CloudException, InternalException {
+    protected void createListener(@Nonnull String lbId, String subnetId, @Nonnull LbListener listener) throws CloudException, InternalException {
         APITrace.begin(getProvider(), "LB.createListener");
 
         try {
@@ -538,7 +553,7 @@ public class LoadBalancerSupportImpl extends AbstractLoadBalancerSupport<NovaOpe
             // private ports in OS are set in members which may not and unlikely to even exist at this point
             // so we have to serialise the private port into the VIP name.
             lb.put("name", generateListenerId(lbId, listener.getPrivatePort()));
-            lb.put("tenant_id", getContext().getAccountNumber());
+            lb.put("tenant_id", getAccountNumber());
             lb.put("protocol", toOSProtocol(listener.getNetworkProtocol()));
             lb.put("subnet_id", subnetId);
             lb.put("protocol_port", listener.getPublicPort());
@@ -546,16 +561,16 @@ public class LoadBalancerSupportImpl extends AbstractLoadBalancerSupport<NovaOpe
             Map<String, Object> json = new HashMap<String, Object>();
 
             json.put("vip", lb);
-            NovaMethod method = new NovaMethod(getProvider());
 
             if( logger.isTraceEnabled() ) {
                 logger.trace("create(): Posting new listener data...");
             }
-            JSONObject result = method.postNetworks(getListenersResource(), null, new JSONObject(json), false);
+            JSONObject result = getMethod().postNetworks(getListenersResource(), null, new JSONObject(json), false);
 
             if( result == null ) {
                 logger.error("create(): Method executed successfully, but no listener was created");
-                throw new CloudException("Method executed successfully, but no listener was created");
+                throw new GeneralCloudException("No listener was created", CloudErrorType.GENERAL);
+
             }
         }
         finally {
@@ -563,27 +578,27 @@ public class LoadBalancerSupportImpl extends AbstractLoadBalancerSupport<NovaOpe
         }
     }
 
-    private void createMember(@Nonnull String lbId, String address, int privatePort) throws CloudException, InternalException {
+    protected void createMember(@Nonnull String lbId, String address, int privatePort) throws CloudException, InternalException {
         APITrace.begin(getProvider(), "LB.createMember");
         try {
             Map<String, Object> lb = new HashMap<String, Object>();
 
-            lb.put("tenant_id", getContext().getAccountNumber());
+            lb.put("tenant_id", getAccountNumber());
             lb.put("protocol_port", privatePort);
             lb.put("address", address);
             lb.put("pool_id", lbId);
             Map<String, Object> json = new HashMap<String, Object>();
 
             json.put("member", lb);
-            NovaMethod method = new NovaMethod(getProvider());
 
             if( logger.isTraceEnabled() ) {
                 logger.trace("create(): Posting new listener data...");
             }
-            JSONObject result = method.postNetworks(getMembersResource(), null, new JSONObject(json), false);
+            JSONObject result = getMethod().postNetworks(getMembersResource(), null, new JSONObject(json), false);
             if( result == null ) {
                 logger.error("create(): Method executed successfully, but no load balancer member was created");
-                throw new CloudException("Method executed successfully, but no load balancer member was created");
+                throw new GeneralCloudException("Method executed successfully, but no load balancer member was created", CloudErrorType.GENERAL);
+
             }
         }
         finally {
@@ -598,9 +613,8 @@ public class LoadBalancerSupportImpl extends AbstractLoadBalancerSupport<NovaOpe
      * @throws CloudException
      * @throws InternalException
      */
-    private List<JSONObject> findAllVips(@Nullable String loadBalancerId) throws CloudException, InternalException {
-        NovaMethod method = new NovaMethod(getProvider());
-        JSONObject result = method.getNetworks(getListenersResource(), null, false, "?tenant_id="+getContext().getAccountNumber());
+    protected List<JSONObject> findAllVips(@Nullable String loadBalancerId) throws CloudException, InternalException {
+        JSONObject result = getMethod().getNetworks(getListenersResource(), null, false, "?tenant_id="+ getAccountNumber());
         List<JSONObject> listeners = new ArrayList<JSONObject>();
         if( result != null && result.has("vips") ) {
             try {
@@ -614,7 +628,7 @@ public class LoadBalancerSupportImpl extends AbstractLoadBalancerSupport<NovaOpe
             }
             catch( JSONException e ) {
                 logger.error("Unable to understand listVips response: " + e.getMessage());
-                throw new CloudException(e);
+                throw new CommunicationException("Unable to understand listVips response: " + e.getMessage(), e);
             }
         }
         return listeners;
@@ -627,9 +641,8 @@ public class LoadBalancerSupportImpl extends AbstractLoadBalancerSupport<NovaOpe
      * @throws CloudException
      * @throws InternalException
      */
-    private List<JSONObject> findAllMembers(@Nullable String loadBalancerId) throws CloudException, InternalException {
-        NovaMethod method = new NovaMethod(getProvider());
-        JSONObject result = method.getNetworks(getMembersResource(), null, false, "?tenant_id="+getContext().getAccountNumber());
+    protected List<JSONObject> findAllMembers(@Nullable String loadBalancerId) throws CloudException, InternalException {
+        JSONObject result = getMethod().getNetworks(getMembersResource(), null, false, "?tenant_id="+ getAccountNumber());
         List<JSONObject> members = new ArrayList<JSONObject>();
         if( result != null && result.has("members") ) {
             try {
@@ -644,7 +657,7 @@ public class LoadBalancerSupportImpl extends AbstractLoadBalancerSupport<NovaOpe
             }
             catch( JSONException e ) {
                 logger.error("Unable to understand listMembers response: " + e.getMessage());
-                throw new CloudException(e);
+                throw new CommunicationException("Unable to understand listMembers response: " + e.getMessage(), e);
             }
         }
         return members;
@@ -657,7 +670,7 @@ public class LoadBalancerSupportImpl extends AbstractLoadBalancerSupport<NovaOpe
      * @throws CloudException
      * @throws InternalException
      */
-    private List<LoadBalancer> findLoadBalancers(@Nullable String loadBalancerId) throws CloudException, InternalException {
+    protected List<LoadBalancer> findLoadBalancers(@Nullable String loadBalancerId) throws CloudException, InternalException {
         APITrace.begin(getProvider(), "LB.listLoadBalancers");
         try {
             // get all vips, optionally filtered by lbId
@@ -666,9 +679,8 @@ public class LoadBalancerSupportImpl extends AbstractLoadBalancerSupport<NovaOpe
             // get all members, optionally filtered by lbId
             List<JSONObject> members = findAllMembers(loadBalancerId);
 
-            NovaMethod method = new NovaMethod(getProvider());
             // Unlike Horizon the OS LB API returns all tenants' load balancers, so we must filter
-            JSONObject result = method.getNetworks(getLoadBalancersResource(), loadBalancerId, false, "?tenant_id="+getContext().getAccountNumber());
+            JSONObject result = getMethod().getNetworks(getLoadBalancersResource(), loadBalancerId, false, "?tenant_id="+ getAccountNumber());
             List<LoadBalancer> results = new ArrayList<LoadBalancer>();
             if( loadBalancerId == null && result != null && result.has("pools") ) {
                 try {
@@ -680,7 +692,7 @@ public class LoadBalancerSupportImpl extends AbstractLoadBalancerSupport<NovaOpe
                 }
                 catch( JSONException e ) {
                     logger.error("Unable to understand listPools response: " + e.getMessage());
-                    throw new CloudException(e);
+                    throw new GeneralCloudException("Unable to understand listPools response: ", CloudErrorType.GENERAL);
                 }
             }
             else if( result != null && result.has("pool")) {
@@ -689,7 +701,7 @@ public class LoadBalancerSupportImpl extends AbstractLoadBalancerSupport<NovaOpe
                 }
                 catch( JSONException e ) {
                     logger.error("Unable to understand getPool response: " + e.getMessage());
-                    throw new CloudException(e);
+                    throw new CommunicationException("Unable to understand getPool response: " + e.getMessage(), e);
                 }
             }
 
@@ -706,7 +718,7 @@ public class LoadBalancerSupportImpl extends AbstractLoadBalancerSupport<NovaOpe
     }
 
 
-    private @Nullable JSONObject findListenerByLbId(@Nonnull List<JSONObject> listeners, @Nonnull String lbId) throws JSONException {
+    protected @Nullable JSONObject findListenerByLbId(@Nonnull List<JSONObject> listeners, @Nonnull String lbId) throws JSONException {
         for( JSONObject listener : listeners ) {
             if( listener.has("pool_id") && lbId.equals(listener.getString("pool_id")) ) {
                 return listener;
@@ -715,9 +727,9 @@ public class LoadBalancerSupportImpl extends AbstractLoadBalancerSupport<NovaOpe
         return null;
     }
 
-    private LoadBalancer toLoadBalancer(JSONObject lb, List<JSONObject> listeners, List<JSONObject> members) throws JSONException, InternalException {
+    protected LoadBalancer toLoadBalancer(JSONObject lb, List<JSONObject> listeners, List<JSONObject> members) throws JSONException, InternalException {
         String ownerId = lb.optString("tenant_id");
-        String regionId = getContext().getRegionId();
+        String regionId = getCurrentRegionId();
         String lbId = lb.getString("id");
         LoadBalancerState state = "ACTIVE".equalsIgnoreCase(lb.getString("status"))
                 ? LoadBalancerState.ACTIVE : LoadBalancerState.PENDING;
@@ -780,15 +792,16 @@ public class LoadBalancerSupportImpl extends AbstractLoadBalancerSupport<NovaOpe
                 lbListeners.add(LbListener.getInstance(algorithm, persistence, protocol, publicPort, privatePort));
             }
         }
-        LoadBalancer loadBalancer = LoadBalancer.getInstance(
-                ownerId, regionId, lbId, state, name, description, addressType, address, new int[] {publicPort});
-        loadBalancer.withProviderSubnetIds(lb.optString("subnet_id"));
-        loadBalancer.withListeners(lbListeners.toArray(new LbListener[lbListeners.size()]));
         JSONArray monitors = lb.getJSONArray("health_monitors");
+        String lbhcId = null;
         if( monitors.length() > 0 ) {
             // Dasein can only support one, should probably extend that in core
-            loadBalancer.setProviderLBHealthCheckId(monitors.getString(0));
+            lbhcId = monitors.getString(0);
         }
+        LoadBalancer loadBalancer = LoadBalancer.getInstance(
+                ownerId, regionId, lbId, state, name, description, LbType.EXTERNAL, addressType, address, lbhcId, VisibleScope.ACCOUNT_REGION, new int[] {publicPort});
+        loadBalancer.withProviderSubnetIds(lb.optString("subnet_id"));
+        loadBalancer.withListeners(lbListeners.toArray(new LbListener[lbListeners.size()]));
         loadBalancer.operatingIn(regionId + "-a");
 
         return loadBalancer;
@@ -801,11 +814,13 @@ public class LoadBalancerSupportImpl extends AbstractLoadBalancerSupport<NovaOpe
                     "ACTIVE".equalsIgnoreCase(member.getString("status")) ? LbEndpointState.ACTIVE : LbEndpointState.INACTIVE);
         }
         catch( JSONException e ) {
-            throw new CloudException("Unable to parse load balancer member", e);
+            throw new CommunicationException("Unable to parse load balancer member" + e.getMessage(), e);
+
+
         }
     }
 
-    private String generateListenerId(String lbId, int privatePort) {
+    protected String generateListenerId( String lbId, int privatePort ) {
         return lbId + ":" + privatePort;
     }
 
@@ -830,11 +845,10 @@ public class LoadBalancerSupportImpl extends AbstractLoadBalancerSupport<NovaOpe
                 }
             }
 
-            NovaMethod method = new NovaMethod(getProvider());
             List<JSONObject> listeners = findAllVips(loadBalancerId);
             for( JSONObject listener : listeners ) {
                 try {
-                    method.deleteNetworks(getListenersResource(), listener.getString("id"));
+                    getMethod().deleteNetworks(getListenersResource(), listener.getString("id"));
                 }
                 catch( JSONException ignore ) {
                 }
@@ -844,7 +858,7 @@ public class LoadBalancerSupportImpl extends AbstractLoadBalancerSupport<NovaOpe
 
             do {
                 try {
-                    method.deleteNetworks(getLoadBalancersResource(), loadBalancerId);
+                    getMethod().deleteNetworks(getLoadBalancersResource(), loadBalancerId);
                     return;
                 }
                 catch( NovaException e ) {
@@ -881,7 +895,7 @@ public class LoadBalancerSupportImpl extends AbstractLoadBalancerSupport<NovaOpe
         }
     }
 
-    private LoadBalancerHealthCheck.HCProtocol fromOSProtocol(String protocol) {
+    protected LoadBalancerHealthCheck.HCProtocol fromOSProtocol(String protocol) {
         if( "HTTPS".equalsIgnoreCase(protocol) ) {
             return LoadBalancerHealthCheck.HCProtocol.HTTPS;
         }
@@ -903,15 +917,15 @@ public class LoadBalancerSupportImpl extends AbstractLoadBalancerSupport<NovaOpe
     }
 
     // Below is the list of resource endpoints, these will change in LBaaS 2.0
-    private String getLoadBalancersResource() {
+    protected String getLoadBalancersResource() {
         return "v2.0/lb/pools";
     }
 
-    private String getListenersResource() {
+    protected String getListenersResource() {
         return "v2.0/lb/vips";
     }
 
-    private String getMembersResource() {
+    protected String getMembersResource() {
         return "v2.0/lb/members";
     }
 

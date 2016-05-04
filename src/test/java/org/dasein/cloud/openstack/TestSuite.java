@@ -17,7 +17,7 @@
  * ====================================================================
  */
 
-package org.dasein.cloud.openstack.nova.os;
+package org.dasein.cloud.openstack;
 
 import org.dasein.cloud.test.GlobalTestSuite;
 

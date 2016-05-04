@@ -62,7 +62,6 @@ public class AbstractMethodTest {
             when(response.getEntity()).thenReturn(entity);
         }
         catch( IOException e ) {
-            e.printStackTrace();
         }
 
         try {
@@ -79,10 +78,8 @@ public class AbstractMethodTest {
             assertEquals("Exception error type does not match", CloudErrorType.CAPACITY, e.getErrorType());
         }
         catch( InternalException e ) {
-            e.printStackTrace();
         }
         catch( IOException e ) {
-            e.printStackTrace();
         }
     }
 }

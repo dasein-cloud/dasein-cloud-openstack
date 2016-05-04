@@ -21,13 +21,7 @@ package org.dasein.cloud.openstack.nova.os.network;
 
 import org.apache.http.HttpStatus;
 import org.apache.log4j.Logger;
-import org.dasein.cloud.CloudErrorType;
-import org.dasein.cloud.CloudException;
-import org.dasein.cloud.InternalException;
-import org.dasein.cloud.OperationNotSupportedException;
-import org.dasein.cloud.ProviderContext;
-import org.dasein.cloud.Requirement;
-import org.dasein.cloud.ResourceStatus;
+import org.dasein.cloud.*;
 import org.dasein.cloud.identity.ServiceAction;
 import org.dasein.cloud.network.AbstractIpAddressSupport;
 import org.dasein.cloud.network.AddressType;
@@ -93,7 +87,7 @@ public class NovaFloatingIP extends AbstractIpAddressSupport<NovaOpenStack> {
             IpAddress addr = getIpAddress(addressId);
             
             if( addr == null ) {
-                throw new CloudException("No such IP address: " + addressId);
+                throw new ResourceNotFoundException("IP", addressId);
             }
             //action.put("server", serverId);
             action.put("address",addr.getRawAddress().getIpAddress());
@@ -119,6 +113,7 @@ public class NovaFloatingIP extends AbstractIpAddressSupport<NovaOpenStack> {
     }
 
     private transient volatile FloatingIPCapabilities capabilities;
+
     @Nonnull
     @Override
     public IPAddressCapabilities getCapabilities() throws CloudException, InternalException {
@@ -150,58 +145,13 @@ public class NovaFloatingIP extends AbstractIpAddressSupport<NovaOpenStack> {
             }
             catch( JSONException e ) {
                 logger.error("getIpAddress(): Unable to identify expected values in JSON: " + e.getMessage());
-                throw new CloudException(CloudErrorType.COMMUNICATION, 200, "invalidJson", "Missing JSON element for IP address");
+                throw new CommunicationException("Missing JSON element for IP address", e);
             }
             return null;
         }
         finally {
             APITrace.end();
         }
-    }
-
-    @Override
-    public @Nonnull String getProviderTermForIpAddress(@Nonnull Locale locale) {
-        return "floating IP";
-    }
-
-    @Override
-    public @Nonnull Requirement identifyVlanForVlanIPRequirement() throws CloudException, InternalException {
-        return Requirement.NONE;
-    }
-
-    @Override
-    public boolean isAssigned(@Nonnull AddressType type) {
-        return (type.equals(AddressType.PUBLIC) || type.equals(AddressType.PRIVATE));
-    }
-
-    @Override
-    public boolean isAssigned(@Nonnull IPVersion version) throws CloudException, InternalException {
-        return getVersions().contains(version);
-    }
-
-    @Override
-    public boolean isAssignablePostLaunch(@Nonnull IPVersion version) throws CloudException, InternalException {
-        return getVersions().contains(version);
-    }
-
-    @Override
-    public boolean isForwarding() {
-        return false;
-    }
-
-    @Override
-    public boolean isForwarding(IPVersion version) throws CloudException, InternalException {
-        return false;
-    }
-
-    @Override
-    public boolean isRequestable(@Nonnull AddressType type) {
-        return (type.equals(AddressType.PUBLIC) || type.equals(AddressType.PRIVATE));
-    }
-
-    @Override
-    public boolean isRequestable(@Nonnull IPVersion version) throws CloudException, InternalException {
-        return getVersions().contains(version);
     }
 
     private boolean verifySupport() throws InternalException, CloudException {
@@ -241,16 +191,6 @@ public class NovaFloatingIP extends AbstractIpAddressSupport<NovaOpenStack> {
         finally {
             APITrace.end();
         }
-    }
-
-    @Override
-    public @Nonnull Iterable<IpAddress> listPrivateIpPool(boolean unassignedOnly) throws InternalException, CloudException {
-        return Collections.emptyList();
-    }
-
-    @Override
-    public @Nonnull Iterable<IpAddress> listPublicIpPool(boolean unassignedOnly) throws InternalException, CloudException {
-        return listIpPool(IPVersion.IPV4, unassignedOnly);
     }
 
     @Override
@@ -363,15 +303,14 @@ public class NovaFloatingIP extends AbstractIpAddressSupport<NovaOpenStack> {
                         }
                         catch( JSONException e ) {
                             logger.error("Invalid JSON from cloud: " + e.getMessage());
-                            throw new CloudException("Invalid JSON from cloud: " + e.getMessage());
+                            throw new CommunicationException("Invalid JSON from cloud: " + e.getMessage(), e);
                         }
                     }
                 }
             }
             catch( JSONException e ) {
                 logger.error("list(): Unable to identify expected values in JSON: " + e.getMessage());
-                e.printStackTrace();
-                throw new CloudException(CloudErrorType.COMMUNICATION, 200, "invalidJson", "Missing JSON element for floating IP in " + ob.toString());
+                throw new CommunicationException("Missing JSON element for floating IP in " + ob.toString(), e);
             }
             return addresses;
         }
@@ -386,7 +325,7 @@ public class NovaFloatingIP extends AbstractIpAddressSupport<NovaOpenStack> {
             }
             NovaMethod method = new NovaMethod(getProvider());
             JSONObject ob = method.getServers(getEndpoint(), null, false);
-            ArrayList<ResourceStatus> addresses = new ArrayList<ResourceStatus>();
+            List<ResourceStatus> addresses = new ArrayList<ResourceStatus>();
 
             try {
                 if( ob != null && ob.has("floating_ips") ) {
@@ -403,13 +342,13 @@ public class NovaFloatingIP extends AbstractIpAddressSupport<NovaOpenStack> {
                             }
                         }
                         catch( JSONException e ) {
-                            throw new CloudException("Invalid JSON from cloud: " + e.getMessage());
+                            throw new CommunicationException("Invalid JSON from cloud: " + e.getMessage(), e);
                         }
                     }
                 }
             }
             catch( JSONException e ) {
-                throw new CloudException(CloudErrorType.COMMUNICATION, 200, "invalidJson", "Missing JSON element for floating IP in " + ob.toString());
+                throw new CommunicationException("Missing JSON element for floating IP in " + ob.toString(), e);
             }
             return addresses;
         }
@@ -476,17 +415,17 @@ public class NovaFloatingIP extends AbstractIpAddressSupport<NovaOpenStack> {
     public void releaseFromServer(@Nonnull String addressId) throws InternalException, CloudException {
         APITrace.begin(getProvider(), "IpAddress.releaseFromServer");
         try {
-            HashMap<String,Object> json = new HashMap<String,Object>();
-            HashMap<String,Object> action = new HashMap<String,Object>();
+            Map<String,Object> json = new HashMap<String,Object>();
+            Map<String,Object> action = new HashMap<String,Object>();
             IpAddress addr = getIpAddress(addressId);
 
             if( addr == null ) {
-                throw new CloudException("No such IP address: " + addressId);
+                throw new ResourceNotFoundException("IP", addressId);
             }
             String serverId = addr.getServerId();
             
             if( serverId == null ) {
-                throw new CloudException("IP address " + addressId + " is not attached to a server");
+                throw new InvalidStateException("IP address " + addressId + " is not attached to a server");
             }
             //action.put("server", serverId);
             action.put("address", addr.getRawAddress().getIpAddress());
@@ -504,8 +443,8 @@ public class NovaFloatingIP extends AbstractIpAddressSupport<NovaOpenStack> {
     private Iterable<String> listPools() throws CloudException, InternalException {
         NovaMethod method = new NovaMethod(getProvider());
         JSONObject ob = method.getServers("/os-floating-ip-pools", null, false);
-        ArrayList<String> pools = new ArrayList<String>();
-        ArrayList<String> tmp = new ArrayList<String>();
+        List<String> pools = new ArrayList<String>();
+        List<String> tmp = new ArrayList<String>();
 
 
         try {
@@ -530,17 +469,9 @@ public class NovaFloatingIP extends AbstractIpAddressSupport<NovaOpenStack> {
             }
         }
         catch( JSONException e ) {
-            throw new CloudException(CloudErrorType.COMMUNICATION, 200, "invalidJson", "Missing JSON element for IP address");
+            throw new CommunicationException("Missing JSON element for IP address", e);
         }
         return pools;
-    }
-
-    @Override
-    public @Nonnull String request(@Nonnull AddressType typeOfAddress) throws InternalException, CloudException {
-        if( typeOfAddress.equals(AddressType.PRIVATE) ) {
-            throw new OperationNotSupportedException("Requesting private IP addresses is not supported by OpenStack");
-        }
-        return request(IPVersion.IPV4);
     }
 
     @Override
@@ -590,14 +521,11 @@ public class NovaFloatingIP extends AbstractIpAddressSupport<NovaOpenStack> {
                 }
                 catch( JSONException e ) {
                     logger.error("create(): Unable to understand create response: " + e.getMessage());
-                    if( logger.isTraceEnabled() ) {
-                        e.printStackTrace();
-                    }
-                    throw new CloudException(e);
+                    throw new CommunicationException("Invalid response", e);
                 }
             }
             logger.error("create(): No IP address was created by the create attempt, and no error was returned");
-            throw new CloudException("No IP address was created");
+            throw new GeneralCloudException("No IP address was created", CloudErrorType.GENERAL);
 
         }
         finally {
@@ -618,11 +546,6 @@ public class NovaFloatingIP extends AbstractIpAddressSupport<NovaOpenStack> {
     @Override
     public void stopForward(@Nonnull String ruleId) throws InternalException, CloudException {
         throw new OperationNotSupportedException("Forwarding not supported");
-    }
-
-    @Override
-    public boolean supportsVLANAddresses(@Nonnull IPVersion ofVersion) throws InternalException, CloudException {
-        return false;
     }
 
     private IpAddress toIP(JSONObject json) throws JSONException, InternalException {

@@ -20,11 +20,7 @@
 package org.dasein.cloud.openstack.nova.os.ext.hp.db;
 
 import org.apache.log4j.Logger;
-import org.dasein.cloud.CloudErrorType;
-import org.dasein.cloud.CloudException;
-import org.dasein.cloud.InternalException;
-import org.dasein.cloud.ProviderContext;
-import org.dasein.cloud.ResourceStatus;
+import org.dasein.cloud.*;
 import org.dasein.cloud.identity.ServiceAction;
 import org.dasein.cloud.openstack.nova.os.NovaMethod;
 import org.dasein.cloud.openstack.nova.os.NovaOpenStack;
@@ -57,22 +53,15 @@ public class HPRDBMS extends AbstractRelationalDatabaseSupport<NovaOpenStack> {
     public HPRDBMS(NovaOpenStack provider) { super(provider); }
 
     private @Nonnull String getTenantId() throws CloudException, InternalException {
-        return getProvider().getContext().getAccountNumber();
+        return getContext().getAccountNumber();
     }
 
     @Override
     public @Nonnull String createFromScratch(@Nonnull String dataSourceName, @Nonnull DatabaseProduct product, @Nonnull String databaseVersion, @Nonnull String withAdminUser, @Nonnull String withAdminPassword, int hostPort) throws CloudException, InternalException {
         APITrace.begin(getProvider(), "RDBMS.createFromScratch");
         try {
-            ProviderContext ctx = getProvider().getContext();
-
-            if( ctx == null ) {
-                logger.error("No context exists for this request");
-                throw new InternalException("No context exists for this request");
-            }
-
-            Map<String,Object> wrapper = new HashMap<String,Object>();
-            Map<String,Object> json = new HashMap<String,Object>();
+            Map<String,Object> wrapper = new HashMap<>();
+            Map<String,Object> json = new HashMap<>();
             NovaMethod method = new NovaMethod(getProvider());
 
             json.put("flavorRef", getFlavorRef(product.getProductSize()));
@@ -80,7 +69,7 @@ public class HPRDBMS extends AbstractRelationalDatabaseSupport<NovaOpenStack> {
             json.put("name", dataSourceName);
             json.put("port", hostPort > 0 ? hostPort : 3306);
             if( product.getEngine().equals(DatabaseEngine.MYSQL) ) {
-                Map<String,Object> type = new HashMap<String, Object>();
+                Map<String,Object> type = new HashMap<>();
                 
                 type.put("name", "mysql");
                 if( databaseVersion != null ) {
@@ -99,14 +88,14 @@ public class HPRDBMS extends AbstractRelationalDatabaseSupport<NovaOpenStack> {
                 json.put("dbtype", type);
             }
             else {
-                throw new CloudException("Unsupported database product: " + product);
+                throw new InternalException("Unsupported database product: " + product);
             }
             wrapper.put("instance", json);
             JSONObject result = method.postString(SERVICE, RESOURCE, null, new JSONObject(wrapper), true);
 
             if( result != null && result.has("instance") ) {
                 try {
-                    Database db = toDatabase(ctx, result.getJSONObject("instance"));
+                    Database db = toDatabase(result.getJSONObject("instance"));
 
                     if( db != null ) {
                         return db.getProviderDatabaseId();
@@ -114,12 +103,11 @@ public class HPRDBMS extends AbstractRelationalDatabaseSupport<NovaOpenStack> {
                 }
                 catch( JSONException e ) {
                     logger.error("createFromScratch(): Unable to understand create response: " + e.getMessage());
-                    e.printStackTrace();
-                    throw new CloudException(e);
+                    throw new CommunicationException("Unable to understand create response: " + e.getMessage(), e);
                 }
             }
             logger.error("createFromScratch(): No database was created by the create attempt, and no error was returned");
-            throw new CloudException("No database was created");
+            throw new GeneralCloudException("No database was created", CloudErrorType.GENERAL);
 
         }
         finally {
@@ -139,7 +127,7 @@ public class HPRDBMS extends AbstractRelationalDatabaseSupport<NovaOpenStack> {
                 }
             }
             if( snapshot == null ) {
-                throw new CloudException("No snapshots exist from which to create a new database instance");
+                throw new InternalException("No snapshots exist from which to create a new database instance");
             }
             return createFromSnapshot(dataSourceName, providerDatabaseId, snapshot.getProviderSnapshotId(), productSize, providerDataCenterId, hostPort);
         }
@@ -152,15 +140,8 @@ public class HPRDBMS extends AbstractRelationalDatabaseSupport<NovaOpenStack> {
     public String createFromSnapshot(String dataSourceName, String providerDatabaseId, String providerDbSnapshotId, String productSize, String providerDataCenterId, int hostPort) throws CloudException, InternalException {
         APITrace.begin(getProvider(), "RDBMS.createFromSnapshot");
         try {
-            ProviderContext ctx = getProvider().getContext();
-
-            if( ctx == null ) {
-                logger.error("No context exists for this request");
-                throw new InternalException("No context exists for this request");
-            }
-
-            Map<String,Object> wrapper = new HashMap<String,Object>();
-            Map<String,Object> json = new HashMap<String,Object>();
+            Map<String,Object> wrapper = new HashMap<>();
+            Map<String,Object> json = new HashMap<>();
             NovaMethod method = new NovaMethod(getProvider());
 
             json.put("flavorRef", getFlavorRef(productSize));
@@ -174,7 +155,7 @@ public class HPRDBMS extends AbstractRelationalDatabaseSupport<NovaOpenStack> {
 
             if( result != null && result.has("instance") ) {
                 try {
-                    Database db = toDatabase(ctx, result.getJSONObject("instance"));
+                    Database db = toDatabase(result.getJSONObject("instance"));
 
                     if( db != null ) {
                         return db.getProviderDatabaseId();
@@ -182,12 +163,11 @@ public class HPRDBMS extends AbstractRelationalDatabaseSupport<NovaOpenStack> {
                 }
                 catch( JSONException e ) {
                     logger.error("createFromSnapshot(): Unable to understand create response: " + e.getMessage());
-                    e.printStackTrace();
-                    throw new CloudException(e);
+                    throw new CommunicationException("Unable to understand create response: " + e.getMessage(), e);
                 }
             }
             logger.error("createFromSnapshot(): No database was created by the create attempt, and no error was returned");
-            throw new CloudException("No database was created");
+            throw new GeneralCloudException("No database was created", CloudErrorType.GENERAL);
 
         }
         finally {
@@ -207,7 +187,7 @@ public class HPRDBMS extends AbstractRelationalDatabaseSupport<NovaOpenStack> {
                 }
             }
             if( snapshot == null ) {
-                throw new CloudException("No snapshots exist from which to create a new database instance");
+                throw new InternalException("No snapshots exist from which to create a new database instance");
             }
             return createFromSnapshot(dataSourceName, providerDatabaseId, snapshot.getProviderSnapshotId(), productSize, providerDataCenterId, hostPort);
         }
@@ -235,12 +215,6 @@ public class HPRDBMS extends AbstractRelationalDatabaseSupport<NovaOpenStack> {
     public @Nullable Database getDatabase(@Nonnull String providerDatabaseId) throws CloudException, InternalException {
         APITrace.begin(getProvider(), "RDBMS.getDatabase");
         try {
-            ProviderContext ctx = getProvider().getContext();
-
-            if( ctx == null ) {
-                logger.error("No context exists for this request");
-                throw new InternalException("No context exists for this request");
-            }
             NovaMethod method = new NovaMethod(getProvider());
             JSONObject ob = method.getResource(SERVICE, RESOURCE, providerDatabaseId, false);
 
@@ -249,12 +223,12 @@ public class HPRDBMS extends AbstractRelationalDatabaseSupport<NovaOpenStack> {
             }
             try {
                 if( ob.has("instance") ) {
-                    return toDatabase(ctx, ob.getJSONObject("instance"));
+                    return toDatabase(ob.getJSONObject("instance"));
                 }
             }
             catch( JSONException e ) {
                 logger.error("getDatabase(): Unable to identify expected values in JSON: " + e.getMessage());
-                throw new CloudException(CloudErrorType.COMMUNICATION, 200, "invalidJson", "Missing JSON element for instance");
+                throw new CommunicationException("Unable to understand create response: " + e.getMessage(), e);
             }
             return null;
         }
@@ -308,17 +282,11 @@ public class HPRDBMS extends AbstractRelationalDatabaseSupport<NovaOpenStack> {
                 std.trace("ENTER: " + HPRDBMS.class.getName() + ".getDatabaseProducts()");
             }
             try {
-                ProviderContext ctx = getProvider().getContext();
-
-                if( ctx == null ) {
-                    std.error("No context exists for this request");
-                    throw new InternalException("No context exists for this request");
-                }
                 NovaMethod method = new NovaMethod(getProvider());
 
                 JSONObject json = method.getResource(SERVICE, "/flavors", null, false);
 
-                List<DatabaseProduct> products = new ArrayList<DatabaseProduct>();
+                List<DatabaseProduct> products = new ArrayList<>();
 
                 if( json != null && json.has("flavors") ) {
                     try {
@@ -329,7 +297,7 @@ public class HPRDBMS extends AbstractRelationalDatabaseSupport<NovaOpenStack> {
 
                             if( flavor != null ) {
                                 for( int size : new int[] { 2, 5, 10, 20, 25, 30, 40, 50, 60, 70, 80, 90, 100, 150, 200, 250, 300, 400, 500, 600, 700, 800, 900, 1000 } ) {
-                                    DatabaseProduct product = toProduct(ctx, size, flavor);
+                                    DatabaseProduct product = toProduct(size, flavor);
 
                                     if( product != null ) {
                                         products.add(product);
@@ -340,8 +308,7 @@ public class HPRDBMS extends AbstractRelationalDatabaseSupport<NovaOpenStack> {
                     }
                     catch( JSONException e ) {
                         std.error("getDatabaseProducts(): Unable to identify expected values in JSON: " + e.getMessage());
-                        e.printStackTrace();
-                        throw new CloudException(CloudErrorType.COMMUNICATION, 200, "invalidJson", "Missing JSON element for flavors in " + json.toString());
+                        throw new CommunicationException("Unable to identify expected values in JSON: " + e.getMessage(), e);
                     }
                 }
                 return products;
@@ -360,23 +327,15 @@ public class HPRDBMS extends AbstractRelationalDatabaseSupport<NovaOpenStack> {
     @Override
     public Iterable<DatabaseProduct> listDatabaseProducts(DatabaseEngine databaseEngine) throws CloudException, InternalException {
         if( DatabaseEngine.MYSQL.equals(databaseEngine) ) {
-            Logger std = NovaOpenStack.getLogger(HPRDBMS.class, "std");
-
-            if( std.isTraceEnabled() ) {
-                std.trace("ENTER: " + HPRDBMS.class.getName() + ".getDatabaseProducts()");
+            if( logger.isTraceEnabled() ) {
+                logger.trace("ENTER: " + HPRDBMS.class.getName() + ".getDatabaseProducts()");
             }
             try {
-                ProviderContext ctx = getProvider().getContext();
-
-                if( ctx == null ) {
-                    std.error("No context exists for this request");
-                    throw new InternalException("No context exists for this request");
-                }
                 NovaMethod method = new NovaMethod(getProvider());
 
                 JSONObject json = method.getResource(SERVICE, "/flavors", null, false);
 
-                List<DatabaseProduct> products = new ArrayList<DatabaseProduct>();
+                List<DatabaseProduct> products = new ArrayList<>();
 
                 if( json != null && json.has("flavors") ) {
                     try {
@@ -387,7 +346,7 @@ public class HPRDBMS extends AbstractRelationalDatabaseSupport<NovaOpenStack> {
 
                             if( flavor != null ) {
                                 for( int size : new int[] { 2, 5, 10, 20, 25, 30, 40, 50, 60, 70, 80, 90, 100, 150, 200, 250, 300, 400, 500, 600, 700, 800, 900, 1000 } ) {
-                                    DatabaseProduct product = toProduct(ctx, size, flavor);
+                                    DatabaseProduct product = toProduct(size, flavor);
 
                                     if( product != null ) {
                                         products.add(product);
@@ -397,16 +356,15 @@ public class HPRDBMS extends AbstractRelationalDatabaseSupport<NovaOpenStack> {
                         }
                     }
                     catch( JSONException e ) {
-                        std.error("getDatabaseProducts(): Unable to identify expected values in JSON: " + e.getMessage());
-                        e.printStackTrace();
-                        throw new CloudException(CloudErrorType.COMMUNICATION, 200, "invalidJson", "Missing JSON element for flavors in " + json.toString());
+                        logger.error("getDatabaseProducts(): Unable to identify expected values in JSON: " + e.getMessage());
+                        throw new CommunicationException("Unable to identify expected values in JSON: " + e.getMessage(), e);
                     }
                 }
                 return products;
             }
             finally {
-                if( std.isTraceEnabled() ) {
-                    std.trace("exit - " + HPRDBMS.class.getName() + ".getDatabaseProducts()");
+                if( logger.isTraceEnabled() ) {
+                    logger.trace("exit - " + HPRDBMS.class.getName() + ".getDatabaseProducts()");
                 }
             }
         }
@@ -416,18 +374,10 @@ public class HPRDBMS extends AbstractRelationalDatabaseSupport<NovaOpenStack> {
     }
 
     private @Nullable String getFlavorRef(@Nonnull String productId) throws CloudException, InternalException {
-        Logger std = NovaOpenStack.getLogger(HPRDBMS.class, "std");
-
-        if( std.isTraceEnabled() ) {
-            std.trace("ENTER: " + HPRDBMS.class.getName() + ".getFlavorRef(" + productId + ")");
+        if( logger.isTraceEnabled() ) {
+            logger.trace("ENTER: " + HPRDBMS.class.getName() + ".getFlavorRef(" + productId + ")");
         }
         try {
-            ProviderContext ctx = getProvider().getContext();
-
-            if( ctx == null ) {
-                std.error("No context exists for this request");
-                throw new InternalException("No context exists for this request");
-            }
             int idx = productId.indexOf(":");
 
             if( idx > -1 ) {
@@ -460,16 +410,15 @@ public class HPRDBMS extends AbstractRelationalDatabaseSupport<NovaOpenStack> {
                     }
                 }
                 catch( JSONException e ) {
-                    std.error("getFlavorRef(): Unable to identify expected values in JSON: " + e.getMessage());
-                    e.printStackTrace();
-                    throw new CloudException(CloudErrorType.COMMUNICATION, 200, "invalidJson", "Missing JSON element for flavors in " + json.toString());
+                    logger.error("getFlavorRef(): Unable to identify expected values in JSON: " + e.getMessage());
+                    throw new CommunicationException("Unable to identify expected values in JSON: " + e.getMessage(), e);
                 }
             }
             return null;
         }
         finally {
-            if( std.isTraceEnabled() ) {
-                std.trace("exit - " + HPRDBMS.class.getName() + ".getFlavorRef()");
+            if( logger.isTraceEnabled() ) {
+                logger.trace("exit - " + HPRDBMS.class.getName() + ".getFlavorRef()");
             }
         }
     }
@@ -478,12 +427,6 @@ public class HPRDBMS extends AbstractRelationalDatabaseSupport<NovaOpenStack> {
     public DatabaseSnapshot getSnapshot(String providerDbSnapshotId) throws CloudException, InternalException {
         APITrace.begin(getProvider(), "RDBMS.getSnapshot");
         try {
-            ProviderContext ctx = getProvider().getContext();
-
-            if( ctx == null ) {
-                logger.error("No context exists for this request");
-                throw new InternalException("No context exists for this request");
-            }
             NovaMethod method = new NovaMethod(getProvider());
             JSONObject ob = method.getResource(SERVICE, SNAPSHOTS, providerDbSnapshotId, false);
 
@@ -492,12 +435,12 @@ public class HPRDBMS extends AbstractRelationalDatabaseSupport<NovaOpenStack> {
             }
             try {
                 if( ob.has("snapshot") ) {
-                    return toSnapshot(ctx, ob.getJSONObject("snapshot"));
+                    return toSnapshot(ob.getJSONObject("snapshot"));
                 }
             }
             catch( JSONException e ) {
                 logger.error("getSnapshot(): Unable to identify expected values in JSON: " + e.getMessage());
-                throw new CloudException(CloudErrorType.COMMUNICATION, 200, "invalidJson", "Missing JSON element for snapshots");
+                throw new CommunicationException("Unable to identify expected values in JSON: " + e.getMessage(), e);
             }
             return null;
         }
@@ -532,7 +475,7 @@ public class HPRDBMS extends AbstractRelationalDatabaseSupport<NovaOpenStack> {
         APITrace.begin(getProvider(), "RDBMS.listDatabaseStatus");
         try {
             NovaMethod method = new NovaMethod(getProvider());
-            List<ResourceStatus> databases = new ArrayList<ResourceStatus>();
+            List<ResourceStatus> databases = new ArrayList<>();
 
             JSONObject json = method.getResource(SERVICE, RESOURCE, null, false);
 
@@ -549,8 +492,7 @@ public class HPRDBMS extends AbstractRelationalDatabaseSupport<NovaOpenStack> {
                     }
                 }
                 catch( JSONException e ) {
-                    e.printStackTrace();
-                    throw new CloudException(CloudErrorType.COMMUNICATION, 200, "invalidJson", "Missing JSON element for instances in " + json.toString());
+                    throw new CommunicationException("Unable to identify expected values in JSON: " + e.getMessage(), e);
                 }
             }
             return databases;
@@ -564,14 +506,8 @@ public class HPRDBMS extends AbstractRelationalDatabaseSupport<NovaOpenStack> {
     public Iterable<Database> listDatabases() throws CloudException, InternalException {
         APITrace.begin(getProvider(), "RDBMS.listDatabases");
         try {
-            ProviderContext ctx = getProvider().getContext();
-
-            if( ctx == null ) {
-                logger.error("No context exists for this request");
-                throw new InternalException("No context exists for this request");
-            }
             NovaMethod method = new NovaMethod(getProvider());
-            List<Database> databases = new ArrayList<Database>();
+            List<Database> databases = new ArrayList<>();
 
             JSONObject json = method.getResource(SERVICE, RESOURCE, null, false);
 
@@ -580,7 +516,7 @@ public class HPRDBMS extends AbstractRelationalDatabaseSupport<NovaOpenStack> {
                     JSONArray list = json.getJSONArray("instances");
 
                     for( int i=0; i<list.length(); i++ ) {
-                        Database db = toDatabase(ctx, list.getJSONObject(i));
+                        Database db = toDatabase(list.getJSONObject(i));
 
                         if( db != null ) {
                             databases.add(db);
@@ -589,8 +525,7 @@ public class HPRDBMS extends AbstractRelationalDatabaseSupport<NovaOpenStack> {
                 }
                 catch( JSONException e ) {
                     logger.error("listDatabases(): Unable to identify expected values in JSON: " + e.getMessage());
-                    e.printStackTrace();
-                    throw new CloudException(CloudErrorType.COMMUNICATION, 200, "invalidJson", "Missing JSON element for instances in " + json.toString());
+                    throw new CommunicationException("Unable to identify expected values in JSON: " + e.getMessage(), e);
                 }
             }
             return databases;
@@ -609,12 +544,6 @@ public class HPRDBMS extends AbstractRelationalDatabaseSupport<NovaOpenStack> {
     public Iterable<DatabaseSnapshot> listSnapshots(String forOptionalProviderDatabaseId) throws CloudException, InternalException {
         APITrace.begin(getProvider(), "RDBMS.listSnapshots");
         try {
-            ProviderContext ctx = getProvider().getContext();
-
-            if( ctx == null ) {
-                logger.error("No context exists for this request");
-                throw new InternalException("No context exists for this request");
-            }
             NovaMethod method = new NovaMethod(getProvider());
             List<DatabaseSnapshot> snapshots = new ArrayList<DatabaseSnapshot>();
 
@@ -625,7 +554,7 @@ public class HPRDBMS extends AbstractRelationalDatabaseSupport<NovaOpenStack> {
                     JSONArray list = json.getJSONArray("snapshots");
 
                     for( int i=0; i<list.length(); i++ ) {
-                        DatabaseSnapshot snapshot = toSnapshot(ctx, list.getJSONObject(i));
+                        DatabaseSnapshot snapshot = toSnapshot(list.getJSONObject(i));
 
                         if( snapshot != null ) {
                             snapshots.add(snapshot);
@@ -634,8 +563,7 @@ public class HPRDBMS extends AbstractRelationalDatabaseSupport<NovaOpenStack> {
                 }
                 catch( JSONException e ) {
                     logger.error("listSnapshots(): Unable to identify expected values in JSON: " + e.getMessage());
-                    e.printStackTrace();
-                    throw new CloudException(CloudErrorType.COMMUNICATION, 200, "invalidJson", "Missing JSON element for snapshots in " + json.toString());
+                    throw new CommunicationException("Unable to identify expected values in JSON: " + e.getMessage(), e);
                 }
             }
             return snapshots;
@@ -649,12 +577,6 @@ public class HPRDBMS extends AbstractRelationalDatabaseSupport<NovaOpenStack> {
     public void removeDatabase(String providerDatabaseId) throws CloudException, InternalException {
         APITrace.begin(getProvider(), "RDBMS.removeDatabase");
         try {
-            ProviderContext ctx = getProvider().getContext();
-
-            if( ctx == null ) {
-                logger.error("No context exists for this request");
-                throw new InternalException("No context exists for this request");
-            }
             NovaMethod method = new NovaMethod(getProvider());
 
             method.deleteResource(SERVICE, RESOURCE, providerDatabaseId, null);
@@ -668,14 +590,7 @@ public class HPRDBMS extends AbstractRelationalDatabaseSupport<NovaOpenStack> {
     public void removeSnapshot(String providerSnapshotId) throws CloudException, InternalException {
         APITrace.begin(getProvider(), "RDBMS.removeSnapshot");
         try {
-            ProviderContext ctx = getProvider().getContext();
-
-            if( ctx == null ) {
-                logger.error("No context exists for this request");
-                throw new InternalException("No context exists for this request");
-            }
             NovaMethod method = new NovaMethod(getProvider());
-
             method.deleteResource(SERVICE, SNAPSHOTS, providerSnapshotId, null);
         }
         finally {
@@ -692,15 +607,7 @@ public class HPRDBMS extends AbstractRelationalDatabaseSupport<NovaOpenStack> {
     public void restart(String providerDatabaseId, boolean blockUntilDone) throws CloudException, InternalException {
         APITrace.begin(getProvider(), "RDBMS.restart");
         try {
-            ProviderContext ctx = getProvider().getContext();
-
-            if( ctx == null ) {
-                logger.error("No context exists for this request");
-                throw new InternalException("No context exists for this request");
-            }
-
             NovaMethod method = new NovaMethod(getProvider());
-
             method.postResourceHeaders(SERVICE, RESOURCE, providerDatabaseId + "/restart", new HashMap<String,String>());
 
         }
@@ -713,15 +620,8 @@ public class HPRDBMS extends AbstractRelationalDatabaseSupport<NovaOpenStack> {
     public DatabaseSnapshot snapshot(String providerDatabaseId, String name) throws CloudException, InternalException {
         APITrace.begin(getProvider(), "RDBMS.snapshot");
         try {
-            ProviderContext ctx = getProvider().getContext();
-
-            if( ctx == null ) {
-                logger.error("No context exists for this request");
-                throw new InternalException("No context exists for this request");
-            }
-
-            Map<String,Object> wrapper = new HashMap<String,Object>();
-            Map<String,Object> json = new HashMap<String,Object>();
+            Map<String,Object> wrapper = new HashMap<>();
+            Map<String,Object> json = new HashMap<>();
             NovaMethod method = new NovaMethod(getProvider());
 
             json.put("name", name);
@@ -732,7 +632,7 @@ public class HPRDBMS extends AbstractRelationalDatabaseSupport<NovaOpenStack> {
 
             if( result != null && result.has("snapshot") ) {
                 try {
-                    DatabaseSnapshot snapshot = toSnapshot(ctx, result.getJSONObject("snapshot"));
+                    DatabaseSnapshot snapshot = toSnapshot(result.getJSONObject("snapshot"));
 
                     if( snapshot != null ) {
                         return snapshot;
@@ -740,12 +640,11 @@ public class HPRDBMS extends AbstractRelationalDatabaseSupport<NovaOpenStack> {
                 }
                 catch( JSONException e ) {
                     logger.error("snapshot(): Unable to understand create response: " + e.getMessage());
-                    e.printStackTrace();
-                    throw new CloudException(e);
+                    throw new CommunicationException("Unable to understand create response: " + e.getMessage(), e);
                 }
             }
             logger.error("snapshot(): No snapshot was created by the create attempt, and no error was returned");
-            throw new CloudException("No snapshot was created");
+            throw new GeneralCloudException("No snapshot was created", CloudErrorType.GENERAL);
 
         }
         finally {
@@ -758,12 +657,12 @@ public class HPRDBMS extends AbstractRelationalDatabaseSupport<NovaOpenStack> {
         return new String[0];
     }
     
-    private @Nullable Database toDatabase(@Nonnull ProviderContext ctx, @Nullable JSONObject json) throws CloudException, InternalException {
+    private @Nullable Database toDatabase(@Nullable JSONObject json) throws CloudException, InternalException {
         if( json == null ) {
             return null;
         }
         
-        String regionId = ctx.getRegionId();
+        String regionId = getContext().getRegionId();
 
         try {
             String dbId = (json.has("id") ? json.getString("id") : null);
@@ -792,7 +691,7 @@ public class HPRDBMS extends AbstractRelationalDatabaseSupport<NovaOpenStack> {
                     currentState = DatabaseState.AVAILABLE;
                 }
                 else {
-                    System.out.println("DEBUG OS DB STATE: " + status);
+                    logger.debug("DEBUG OS DB STATE: " + status);
                 }
             }
             long created = (json.has("created") ? getProvider().parseTimestamp(json.getString("created")) : -1L);
@@ -847,13 +746,13 @@ public class HPRDBMS extends AbstractRelationalDatabaseSupport<NovaOpenStack> {
                         }
                         else {
                         */
-                            System.out.println("DEBUG OS UNKNOWN MYSQL VERSION " + version);
+                            logger.debug("DEBUG OS UNKNOWN MYSQL VERSION " + version);
                             engine = DatabaseEngine.MYSQL;
                        // }
                     }
                 }
                 else {
-                    System.out.println("DEBUG OS UNKNOWN DB: " + db + " " + version);
+                    logger.debug("DEBUG OS UNKNOWN DB: " + db + " " + version);
                 }
             }
             DatabaseProduct product = (flavor == null ? null : getDatabaseProduct(flavor));
@@ -871,24 +770,24 @@ public class HPRDBMS extends AbstractRelationalDatabaseSupport<NovaOpenStack> {
             database.setName(name);
             database.setProductSize(flavor);
             database.setProviderDatabaseId(dbId);
-            database.setProviderRegionId(ctx.getRegionId());
+            database.setProviderRegionId(getContext().getRegionId());
             database.setProviderDataCenterId(regionId + "-a");
             database.setProviderOwnerId(getTenantId());
             database.setProviderRegionId(regionId);
             return database;
         }
         catch( JSONException e ) {
-            throw new CloudException(e);
+            throw new CommunicationException("Unable to understand response: " + e.getMessage(), e);
         }
     }
          
-    private @Nullable DatabaseSnapshot toSnapshot(@Nonnull ProviderContext ctx, @Nullable JSONObject json) throws CloudException, InternalException {
+    private @Nullable DatabaseSnapshot toSnapshot(@Nullable JSONObject json) throws CloudException, InternalException {
         if( json == null ) {
             return null;
         }
         
         try {
-            String regionId = ctx.getRegionId();
+            String regionId = getContext().getRegionId();
             
             String snapshotId = (json.has("id") ? json.getString("id") : null);
             
@@ -911,7 +810,7 @@ public class HPRDBMS extends AbstractRelationalDatabaseSupport<NovaOpenStack> {
                     currentState = DatabaseSnapshotState.DELETED;
                 }
                 else {
-                    System.out.println("DEBUG OS DBSNAP STATE: " + status);
+                    logger.debug("DEBUG OS DBSNAP STATE: " + status);
                 }
             }
             long created = (json.has("created") ? getProvider().parseTimestamp(json.getString("created")) : -1L);
@@ -929,11 +828,11 @@ public class HPRDBMS extends AbstractRelationalDatabaseSupport<NovaOpenStack> {
             return snapshot;
         }
         catch( JSONException e ) {
-            throw new CloudException(e);
+            throw new CommunicationException("Unable to understand  response: " + e.getMessage(), e);
         }
     }
 
-    private @Nullable DatabaseProduct toProduct(@Nonnull ProviderContext ctx, @Nonnegative int size, @Nullable JSONObject json) throws CloudException, InternalException {
+    private @Nullable DatabaseProduct toProduct(@Nonnegative int size, @Nullable JSONObject json) throws CloudException, InternalException {
         if( json == null ) {
             return null;
         }
@@ -954,7 +853,7 @@ public class HPRDBMS extends AbstractRelationalDatabaseSupport<NovaOpenStack> {
             }
             id = id + ":" + size;
 
-            String regionId = ctx.getRegionId();
+            String regionId = getContext().getRegionId();
 
             if( regionId == null ) {
                 throw new InternalException("No region is associated with this request");
@@ -978,7 +877,7 @@ public class HPRDBMS extends AbstractRelationalDatabaseSupport<NovaOpenStack> {
             return product;
         }
         catch( JSONException e ) {
-            throw new CloudException(e);
+            throw new CommunicationException("Unable to understand response: " + e.getMessage(), e);
         }
     }
 
@@ -1008,13 +907,13 @@ public class HPRDBMS extends AbstractRelationalDatabaseSupport<NovaOpenStack> {
                     currentState = DatabaseState.AVAILABLE;
                 }
                 else {
-                    System.out.println("DEBUG OS DB STATE: " + status);
+                    logger.debug("DEBUG OS DB STATE: " + status);
                 }
             }
             return new ResourceStatus(dbId, currentState);
         }
         catch( JSONException e ) {
-            throw new CloudException(e);
+            throw new CommunicationException("Unable to understand response: " + e.getMessage(), e);
         }
     }
 }

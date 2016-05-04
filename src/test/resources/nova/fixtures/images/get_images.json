@@ -1,0 +1,431 @@
+{
+  "images": [
+    {
+      "status": "ACTIVE",
+      "updated": "2016-02-08T10:09:57Z",
+      "links": [
+        {
+          "href": "http://nova-osp7/v2/94b7d98054db4d4eb5734e4a370805c7/images/18c88af8-492b-4bc0-bd0c-e99c9764b2ee",
+          "rel": "self"
+        },
+        {
+          "href": "http://nova-osp7/94b7d98054db4d4eb5734e4a370805c7/images/18c88af8-492b-4bc0-bd0c-e99c9764b2ee",
+          "rel": "bookmark"
+        },
+        {
+          "href": "http://148.9.210.226:9292/images/18c88af8-492b-4bc0-bd0c-e99c9764b2ee",
+          "type": "application/vnd.openstack.image",
+          "rel": "alternate"
+        }
+      ],
+      "id": "18c88af8-492b-4bc0-bd0c-e99c9764b2ee",
+      "OS-EXT-IMG-SIZE:size": 1242497024,
+      "name": "plredvmimg",
+      "created": "2016-02-08T10:09:14Z",
+      "minDisk": 20,
+      "server": {
+        "id": "d2312e41-67bb-43ac-8434-27e67f05dcf8",
+        "links": [
+          {
+            "href": "http://nova-osp7/v2/94b7d98054db4d4eb5734e4a370805c7/servers/d2312e41-67bb-43ac-8434-27e67f05dcf8",
+            "rel": "self"
+          },
+          {
+            "href": "http://nova-osp7/94b7d98054db4d4eb5734e4a370805c7/servers/d2312e41-67bb-43ac-8434-27e67f05dcf8",
+            "rel": "bookmark"
+          }
+        ]
+      },
+      "progress": 100,
+      "minRam": 0,
+      "metadata": {
+        "org.dasein.platform": "RHEL",
+        "instance_uuid": "d2312e41-67bb-43ac-8434-27e67f05dcf8",
+        "image_state": "available",
+        "user_id": "e3ea2e865bcd43f59b97dfc76acd0e81",
+        "image_location": "snapshot",
+        "image_type": "snapshot",
+        "org.dasein.description": "plredvmimg",
+        "ramdisk_id": null,
+        "kernel_id": null,
+        "network_allocated": "True",
+        "base_image_ref": "4fe549b5-7a94-4e6d-8712-4ca8462050c0",
+        "owner_id": "94b7d98054db4d4eb5734e4a370805c7"
+      }
+    },
+    {
+      "status": "ACTIVE",
+      "updated": "2016-02-08T07:11:42Z",
+      "links": [
+        {
+          "href": "http://nova-osp7/v2/94b7d98054db4d4eb5734e4a370805c7/images/11cdc38b-7d87-4ab9-86bd-19cf33056b81",
+          "rel": "self"
+        },
+        {
+          "href": "http://nova-osp7/94b7d98054db4d4eb5734e4a370805c7/images/11cdc38b-7d87-4ab9-86bd-19cf33056b81",
+          "rel": "bookmark"
+        },
+        {
+          "href": "http://148.9.210.226:9292/images/11cdc38b-7d87-4ab9-86bd-19cf33056b81",
+          "type": "application/vnd.openstack.image",
+          "rel": "alternate"
+        }
+      ],
+      "id": "11cdc38b-7d87-4ab9-86bd-19cf33056b81",
+      "OS-EXT-IMG-SIZE:size": 1653997568,
+      "name": "kstestubu1",
+      "created": "2016-02-08T07:11:03Z",
+      "minDisk": 20,
+      "server": {
+        "id": "405e9abf-82aa-46d2-8c94-6f14d78d0a26",
+        "links": [
+          {
+            "href": "http://nova-osp7/v2/94b7d98054db4d4eb5734e4a370805c7/servers/405e9abf-82aa-46d2-8c94-6f14d78d0a26",
+            "rel": "self"
+          },
+          {
+            "href": "http://nova-osp7/94b7d98054db4d4eb5734e4a370805c7/servers/405e9abf-82aa-46d2-8c94-6f14d78d0a26",
+            "rel": "bookmark"
+          }
+        ]
+      },
+      "progress": 100,
+      "minRam": 0,
+      "metadata": {
+        "org.dasein.platform": "UBUNTU",
+        "instance_uuid": "405e9abf-82aa-46d2-8c94-6f14d78d0a26",
+        "image_state": "available",
+        "user_id": "e3ea2e865bcd43f59b97dfc76acd0e81",
+        "image_location": "snapshot",
+        "image_type": "snapshot",
+        "org.dasein.description": "kstestubu1",
+        "ramdisk_id": null,
+        "kernel_id": null,
+        "network_allocated": "True",
+        "base_image_ref": "be75c519-a938-41e1-88bb-2af6d9e9c962",
+        "owner_id": "94b7d98054db4d4eb5734e4a370805c7"
+      }
+    },
+    {
+      "status": "ACTIVE",
+      "updated": "2015-11-12T12:28:08Z",
+      "links": [
+        {
+          "href": "http://nova-osp7/v2/94b7d98054db4d4eb5734e4a370805c7/images/43c1fff5-e520-410f-bdb1-076adb8cc8c0",
+          "rel": "self"
+        },
+        {
+          "href": "http://nova-osp7/94b7d98054db4d4eb5734e4a370805c7/images/43c1fff5-e520-410f-bdb1-076adb8cc8c0",
+          "rel": "bookmark"
+        },
+        {
+          "href": "http://148.9.210.226:9292/images/43c1fff5-e520-410f-bdb1-076adb8cc8c0",
+          "type": "application/vnd.openstack.image",
+          "rel": "alternate"
+        }
+      ],
+      "id": "43c1fff5-e520-410f-bdb1-076adb8cc8c0",
+      "OS-EXT-IMG-SIZE:size": 851509248,
+      "name": "image-857377",
+      "created": "2015-11-12T12:27:46Z",
+      "minDisk": 20,
+      "server": {
+        "id": "a62e0a21-c96a-495a-a0bb-e05d439acf7b",
+        "links": [
+          {
+            "href": "http://nova-osp7/v2/94b7d98054db4d4eb5734e4a370805c7/servers/a62e0a21-c96a-495a-a0bb-e05d439acf7b",
+            "rel": "self"
+          },
+          {
+            "href": "http://nova-osp7/94b7d98054db4d4eb5734e4a370805c7/servers/a62e0a21-c96a-495a-a0bb-e05d439acf7b",
+            "rel": "bookmark"
+          }
+        ]
+      },
+      "progress": 100,
+      "minRam": 0,
+      "metadata": {
+        "org.dasein.platform": "UBUNTU",
+        "instance_uuid": "a62e0a21-c96a-495a-a0bb-e05d439acf7b",
+        "image_state": "available",
+        "user_id": "e3ea2e865bcd43f59b97dfc76acd0e81",
+        "image_location": "snapshot",
+        "image_type": "snapshot",
+        "org.dasein.description": "image-857377",
+        "ramdisk_id": null,
+        "kernel_id": null,
+        "network_allocated": "True",
+        "base_image_ref": "be75c519-a938-41e1-88bb-2af6d9e9c962",
+        "owner_id": "94b7d98054db4d4eb5734e4a370805c7"
+      }
+    },
+    {
+      "status": "ACTIVE",
+      "updated": "2015-11-03T15:00:09Z",
+      "links": [
+        {
+          "href": "http://nova-osp7/v2/94b7d98054db4d4eb5734e4a370805c7/images/44f93d94-782b-4327-a779-6fcb422f0ec4",
+          "rel": "self"
+        },
+        {
+          "href": "http://nova-osp7/94b7d98054db4d4eb5734e4a370805c7/images/44f93d94-782b-4327-a779-6fcb422f0ec4",
+          "rel": "bookmark"
+        },
+        {
+          "href": "http://148.9.210.226:9292/images/44f93d94-782b-4327-a779-6fcb422f0ec4",
+          "type": "application/vnd.openstack.image",
+          "rel": "alternate"
+        }
+      ],
+      "id": "44f93d94-782b-4327-a779-6fcb422f0ec4",
+      "OS-EXT-IMG-SIZE:size": 851509248,
+      "name": "image-866288",
+      "created": "2015-11-03T14:59:51Z",
+      "minDisk": 20,
+      "server": {
+        "id": "3f5c8984-4047-421d-965a-caa25b341f03",
+        "links": [
+          {
+            "href": "http://nova-osp7/v2/94b7d98054db4d4eb5734e4a370805c7/servers/3f5c8984-4047-421d-965a-caa25b341f03",
+            "rel": "self"
+          },
+          {
+            "href": "http://nova-osp7/94b7d98054db4d4eb5734e4a370805c7/servers/3f5c8984-4047-421d-965a-caa25b341f03",
+            "rel": "bookmark"
+          }
+        ]
+      },
+      "progress": 100,
+      "minRam": 0,
+      "metadata": {
+        "org.dasein.platform": "UBUNTU",
+        "instance_uuid": "3f5c8984-4047-421d-965a-caa25b341f03",
+        "image_state": "available",
+        "user_id": "e3ea2e865bcd43f59b97dfc76acd0e81",
+        "image_location": "snapshot",
+        "image_type": "snapshot",
+        "org.dasein.description": "image-866288",
+        "ramdisk_id": null,
+        "kernel_id": null,
+        "network_allocated": "True",
+        "base_image_ref": "be75c519-a938-41e1-88bb-2af6d9e9c962",
+        "owner_id": "94b7d98054db4d4eb5734e4a370805c7"
+      }
+    },
+    {
+      "status": "ACTIVE",
+      "updated": "2015-10-26T13:16:27Z",
+      "links": [
+        {
+          "href": "http://nova-osp7/v2/94b7d98054db4d4eb5734e4a370805c7/images/89977c3a-13be-4146-b306-fe94f8571068",
+          "rel": "self"
+        },
+        {
+          "href": "http://nova-osp7/94b7d98054db4d4eb5734e4a370805c7/images/89977c3a-13be-4146-b306-fe94f8571068",
+          "rel": "bookmark"
+        },
+        {
+          "href": "http://148.9.210.226:9292/images/89977c3a-13be-4146-b306-fe94f8571068",
+          "type": "application/vnd.openstack.image",
+          "rel": "alternate"
+        }
+      ],
+      "id": "89977c3a-13be-4146-b306-fe94f8571068",
+      "OS-EXT-IMG-SIZE:size": 851509248,
+      "name": "image-459676",
+      "created": "2015-10-26T13:16:09Z",
+      "minDisk": 20,
+      "server": {
+        "id": "9c427c19-7438-49e3-be5f-ed06089eedb8",
+        "links": [
+          {
+            "href": "http://nova-osp7/v2/94b7d98054db4d4eb5734e4a370805c7/servers/9c427c19-7438-49e3-be5f-ed06089eedb8",
+            "rel": "self"
+          },
+          {
+            "href": "http://nova-osp7/94b7d98054db4d4eb5734e4a370805c7/servers/9c427c19-7438-49e3-be5f-ed06089eedb8",
+            "rel": "bookmark"
+          }
+        ]
+      },
+      "progress": 100,
+      "minRam": 0,
+      "metadata": {
+        "org.dasein.platform": "UBUNTU",
+        "instance_uuid": "9c427c19-7438-49e3-be5f-ed06089eedb8",
+        "image_state": "available",
+        "user_id": "e3ea2e865bcd43f59b97dfc76acd0e81",
+        "image_location": "snapshot",
+        "image_type": "snapshot",
+        "org.dasein.description": "image-459676",
+        "ramdisk_id": null,
+        "kernel_id": null,
+        "network_allocated": "True",
+        "base_image_ref": "be75c519-a938-41e1-88bb-2af6d9e9c962",
+        "owner_id": "94b7d98054db4d4eb5734e4a370805c7"
+      }
+    },
+    {
+      "status": "SAVING",
+      "updated": "2015-09-08T03:56:50Z",
+      "links": [
+        {
+          "href": "http://nova-osp7/v2/94b7d98054db4d4eb5734e4a370805c7/images/fafb5504-411c-4b16-a4f0-352435052adf",
+          "rel": "self"
+        },
+        {
+          "href": "http://nova-osp7/94b7d98054db4d4eb5734e4a370805c7/images/fafb5504-411c-4b16-a4f0-352435052adf",
+          "rel": "bookmark"
+        },
+        {
+          "href": "http://148.9.210.226:9292/images/fafb5504-411c-4b16-a4f0-352435052adf",
+          "type": "application/vnd.openstack.image",
+          "rel": "alternate"
+        }
+      ],
+      "id": "fafb5504-411c-4b16-a4f0-352435052adf",
+      "OS-EXT-IMG-SIZE:size": 17182752768,
+      "name": "Windows-2012R2-Standard-64",
+      "created": "2015-09-08T03:56:49Z",
+      "minDisk": 0,
+      "progress": 50,
+      "minRam": 0,
+      "metadata": {}
+    },
+    {
+      "status": "ACTIVE",
+      "updated": "2015-09-08T03:57:04Z",
+      "links": [
+        {
+          "href": "http://nova-osp7/v2/94b7d98054db4d4eb5734e4a370805c7/images/4fe549b5-7a94-4e6d-8712-4ca8462050c0",
+          "rel": "self"
+        },
+        {
+          "href": "http://nova-osp7/94b7d98054db4d4eb5734e4a370805c7/images/4fe549b5-7a94-4e6d-8712-4ca8462050c0",
+          "rel": "bookmark"
+        },
+        {
+          "href": "http://148.9.210.226:9292/images/4fe549b5-7a94-4e6d-8712-4ca8462050c0",
+          "type": "application/vnd.openstack.image",
+          "rel": "alternate"
+        }
+      ],
+      "id": "4fe549b5-7a94-4e6d-8712-4ca8462050c0",
+      "OS-EXT-IMG-SIZE:size": 337641472,
+      "name": "RHEL-6.5-x86_64",
+      "created": "2015-09-08T03:56:47Z",
+      "minDisk": 0,
+      "progress": 100,
+      "minRam": 0,
+      "metadata": {}
+    },
+    {
+      "status": "ACTIVE",
+      "updated": "2015-09-08T03:56:54Z",
+      "links": [
+        {
+          "href": "http://nova-osp7/v2/94b7d98054db4d4eb5734e4a370805c7/images/8f5cd69c-721f-496a-b419-0c3b343ca7ca",
+          "rel": "self"
+        },
+        {
+          "href": "http://nova-osp7/94b7d98054db4d4eb5734e4a370805c7/images/8f5cd69c-721f-496a-b419-0c3b343ca7ca",
+          "rel": "bookmark"
+        },
+        {
+          "href": "http://148.9.210.226:9292/images/8f5cd69c-721f-496a-b419-0c3b343ca7ca",
+          "type": "application/vnd.openstack.image",
+          "rel": "alternate"
+        }
+      ],
+      "id": "8f5cd69c-721f-496a-b419-0c3b343ca7ca",
+      "OS-EXT-IMG-SIZE:size": 344457216,
+      "name": "CentOS-6.5-x86_64",
+      "created": "2015-09-08T03:56:45Z",
+      "minDisk": 0,
+      "progress": 100,
+      "minRam": 0,
+      "metadata": {}
+    },
+    {
+      "status": "ACTIVE",
+      "updated": "2015-09-08T03:56:51Z",
+      "links": [
+        {
+          "href": "http://nova-osp7/v2/94b7d98054db4d4eb5734e4a370805c7/images/bba418d0-21b4-45db-a646-12a8ddc265f1",
+          "rel": "self"
+        },
+        {
+          "href": "http://nova-osp7/94b7d98054db4d4eb5734e4a370805c7/images/bba418d0-21b4-45db-a646-12a8ddc265f1",
+          "rel": "bookmark"
+        },
+        {
+          "href": "http://148.9.210.226:9292/images/bba418d0-21b4-45db-a646-12a8ddc265f1",
+          "type": "application/vnd.openstack.image",
+          "rel": "alternate"
+        }
+      ],
+      "id": "bba418d0-21b4-45db-a646-12a8ddc265f1",
+      "OS-EXT-IMG-SIZE:size": 256180736,
+      "name": "Ubuntu-14.04-amd64",
+      "created": "2015-09-08T03:56:44Z",
+      "minDisk": 0,
+      "progress": 100,
+      "minRam": 0,
+      "metadata": {}
+    },
+    {
+      "status": "ACTIVE",
+      "updated": "2015-09-08T03:56:47Z",
+      "links": [
+        {
+          "href": "http://nova-osp7/v2/94b7d98054db4d4eb5734e4a370805c7/images/be75c519-a938-41e1-88bb-2af6d9e9c962",
+          "rel": "self"
+        },
+        {
+          "href": "http://nova-osp7/94b7d98054db4d4eb5734e4a370805c7/images/be75c519-a938-41e1-88bb-2af6d9e9c962",
+          "rel": "bookmark"
+        },
+        {
+          "href": "http://148.9.210.226:9292/images/be75c519-a938-41e1-88bb-2af6d9e9c962",
+          "type": "application/vnd.openstack.image",
+          "rel": "alternate"
+        }
+      ],
+      "id": "be75c519-a938-41e1-88bb-2af6d9e9c962",
+      "OS-EXT-IMG-SIZE:size": 255197184,
+      "name": "Ubuntu-12.04-amd64",
+      "created": "2015-09-08T03:56:42Z",
+      "minDisk": 0,
+      "progress": 100,
+      "minRam": 0,
+      "metadata": {}
+    },
+    {
+      "status": "ACTIVE",
+      "updated": "2015-09-08T03:53:01Z",
+      "links": [
+        {
+          "href": "http://nova-osp7/v2/94b7d98054db4d4eb5734e4a370805c7/images/24a1cc8f-7c58-404d-99a2-13931b59024c",
+          "rel": "self"
+        },
+        {
+          "href": "http://nova-osp7/94b7d98054db4d4eb5734e4a370805c7/images/24a1cc8f-7c58-404d-99a2-13931b59024c",
+          "rel": "bookmark"
+        },
+        {
+          "href": "http://148.9.210.226:9292/images/24a1cc8f-7c58-404d-99a2-13931b59024c",
+          "type": "application/vnd.openstack.image",
+          "rel": "alternate"
+        }
+      ],
+      "id": "24a1cc8f-7c58-404d-99a2-13931b59024c",
+      "OS-EXT-IMG-SIZE:size": 13200896,
+      "name": "cirros",
+      "created": "2015-09-08T03:52:58Z",
+      "minDisk": 0,
+      "progress": 100,
+      "minRam": 0,
+      "metadata": {}
+    }
+  ]
+}

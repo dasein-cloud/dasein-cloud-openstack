@@ -20,11 +20,7 @@
 package org.dasein.cloud.openstack.nova.os.ext.hp.cdn;
 
 import org.apache.log4j.Logger;
-import org.dasein.cloud.CloudErrorType;
-import org.dasein.cloud.CloudException;
-import org.dasein.cloud.InternalException;
-import org.dasein.cloud.ProviderContext;
-import org.dasein.cloud.ResourceStatus;
+import org.dasein.cloud.*;
 import org.dasein.cloud.identity.ServiceAction;
 import org.dasein.cloud.openstack.nova.os.NovaMethod;
 import org.dasein.cloud.openstack.nova.os.NovaOpenStack;
@@ -181,8 +177,7 @@ public class HPCDN implements CDNSupport {
             }
             catch( IOException e ) {
                 logger.error("list(): I/O error parsing response: " + e.getMessage());
-                e.printStackTrace();
-                throw new CloudException(CloudErrorType.COMMUNICATION, 200, "invalidResponse", "I/O error parsing " + response);
+                throw new CommunicationException("I/O error parsing " + response);
             }
             return distributions;
         }
@@ -214,8 +209,7 @@ public class HPCDN implements CDNSupport {
                 }
             }
             catch( IOException e ) {
-                e.printStackTrace();
-                throw new CloudException(CloudErrorType.COMMUNICATION, 200, "invalidResponse", "I/O error parsing " + response);
+                throw new CommunicationException("I/O error parsing " + response);
             }
             return distributions;
         }
@@ -289,7 +283,7 @@ public class HPCDN implements CDNSupport {
             }
         }
         catch( URISyntaxException e ) {
-            throw new CloudException(e);
+            throw new GeneralCloudException("Unable to parse the service URL from " + uriString, CloudErrorType.GENERAL);
         }
 
         Distribution distribution = new Distribution();

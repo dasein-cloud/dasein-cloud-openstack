@@ -1,20 +1,17 @@
 package org.dasein.cloud.openstack.nova.os.compute;
 
-import org.apache.commons.io.IOUtils;
 import org.dasein.cloud.CloudException;
 import org.dasein.cloud.InternalException;
 import org.dasein.cloud.ResourceStatus;
-import org.dasein.cloud.Tag;
 import org.dasein.cloud.compute.*;
 import org.dasein.cloud.network.*;
 import org.dasein.cloud.openstack.nova.os.NovaMethod;
 import org.dasein.cloud.openstack.nova.os.OpenStackProvider;
+import org.dasein.cloud.openstack.nova.os.OpenStackTest;
 import org.dasein.cloud.openstack.nova.os.network.NovaFloatingIP;
 import org.dasein.cloud.openstack.nova.os.network.NovaNetworkServices;
 import org.dasein.cloud.openstack.nova.os.network.NovaSecurityGroup;
 import org.dasein.cloud.openstack.nova.os.network.Quantum;
-import org.dasein.util.uom.storage.Megabyte;
-import org.dasein.util.uom.storage.Storage;
 import org.json.JSONException;
 import org.json.JSONObject;
 import org.junit.Test;
@@ -22,8 +19,6 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mockito;
 import org.skyscreamer.jsonassert.JSONAssert;
 
-import java.io.IOException;
-import java.io.InputStream;
 import java.util.*;
 
 import static org.junit.Assert.*;
@@ -32,26 +27,13 @@ import static org.mockito.Matchers.any;
 import static org.mockito.Matchers.anyBoolean;
 import static org.mockito.Matchers.anyString;
 import static org.mockito.Mockito.*;
-import static org.mockito.internal.verification.VerificationModeFactory.atLeast;
 import static org.mockito.internal.verification.VerificationModeFactory.times;
 
 /**
  * Created by mariapavlova on 09/10/2015.
  */
-public class NovaServerTest {
-    private JSONObject readJson(String filename) {
-        try {
-            InputStream is = getClass().getClassLoader().getResourceAsStream(filename);
-            String jsonText = IOUtils.toString(is);
-            return new JSONObject(jsonText);
-        }
-        catch( JSONException e ) {
-            throw new RuntimeException(e);
-        }
-        catch( IOException e ) {
-            throw new RuntimeException(e);
-        }
-    }
+public class NovaServerTest extends OpenStackTest {
+
 
     @Test
     public void getConsoleOutputTest() {
@@ -148,7 +130,7 @@ public class NovaServerTest {
             when(server.getPlatform(anyString(), anyString(), anyString())).thenReturn(Platform.UBUNTU);
 
             when(server.getRegionId()).thenReturn("testRegion");
-            when(server.listFirewalls(anyString())).thenReturn(Collections.EMPTY_LIST);
+            when(server.listFirewalls(anyString(), any(JSONObject.class))).thenReturn(Collections.EMPTY_LIST);
             when(server.toVirtualMachine(any(JSONObject.class), anyList(), anyList(), anyList())).thenCallRealMethod();
             when(method.getServers(anyString(), anyString(), anyBoolean())).thenReturn(json);
             when(server.getVirtualMachine(anyString())).thenCallRealMethod();

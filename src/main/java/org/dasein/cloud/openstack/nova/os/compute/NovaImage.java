@@ -19,23 +19,14 @@
 
 package org.dasein.cloud.openstack.nova.os.compute;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.Locale;
+import java.util.*;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
 import org.apache.http.HttpStatus;
 import org.apache.log4j.Logger;
-import org.dasein.cloud.AsynchronousTask;
-import org.dasein.cloud.CloudErrorType;
-import org.dasein.cloud.CloudException;
-import org.dasein.cloud.InternalException;
-import org.dasein.cloud.Requirement;
-import org.dasein.cloud.ResourceStatus;
-import org.dasein.cloud.Tag;
+import org.dasein.cloud.*;
 import org.dasein.cloud.compute.AbstractImageSupport;
 import org.dasein.cloud.compute.Architecture;
 import org.dasein.cloud.compute.ComputeServices;
@@ -61,20 +52,24 @@ import org.json.JSONObject;
 
 public class NovaImage extends AbstractImageSupport<NovaOpenStack> {
     static private final Logger logger = NovaOpenStack.getLogger(NovaImage.class, "std");
-    private static final String SERVICE = "compute";
+    protected static final String SERVICE = "compute";
 
     NovaImage(NovaOpenStack provider) {
         super(provider);
     }
 
-    private @Nonnull String getTenantId() throws CloudException, InternalException {
-        return ((NovaOpenStack)getProvider()).getContext().getAccountNumber();
+    protected NovaMethod getMethod() {
+        return new NovaMethod(getProvider());
+    }
+
+    protected @Nonnull String getTenantId() throws CloudException, InternalException {
+        return getContext().getAccountNumber();
     }
 
     public @Nullable String getImageRef(@Nonnull String machineImageId) throws CloudException, InternalException {
         APITrace.begin(getProvider(), "Image.getImageRef");
         try {
-            NovaMethod method = new NovaMethod((NovaOpenStack)getProvider());
+            NovaMethod method = getMethod();
             JSONObject ob = method.getServers("/images", machineImageId, true);
 
             if( ob == null ) {
@@ -102,7 +97,7 @@ public class NovaImage extends AbstractImageSupport<NovaOpenStack> {
             }
             catch( JSONException e ) {
                 logger.error("getImageRef(): Unable to identify expected values in JSON: " + e.getMessage());
-                throw new CloudException(CloudErrorType.COMMUNICATION, 200, "invalidJson", "Missing JSON element for images: " + e.getMessage());
+                throw new CommunicationException("Missing JSON element for images: " + e.getMessage(), e);
             }
         }
         finally {
@@ -114,8 +109,8 @@ public class NovaImage extends AbstractImageSupport<NovaOpenStack> {
     protected MachineImage capture(@Nonnull ImageCreateOptions options, @Nullable AsynchronousTask<MachineImage> task) throws CloudException, InternalException {
         APITrace.begin(getProvider(), "Image.capture");
         try {
-            NovaMethod method = new NovaMethod((NovaOpenStack)getProvider());
-            HashMap<String,Object> action = new HashMap<String,Object>();
+            NovaMethod method = getMethod();
+            Map<String,Object> action = new HashMap<>();
 
             action.put("name", options.getName());
             if( task != null ) {
@@ -129,7 +124,7 @@ public class NovaImage extends AbstractImageSupport<NovaOpenStack> {
 
                 while( timeout > System.currentTimeMillis() ) {
                     try {
-                        ComputeServices services = getProvider().getComputeServices();
+                        ComputeServices services = getComputeServices();
                         VirtualMachine vm = null;
 
                         if( services != null ) {
@@ -140,7 +135,7 @@ public class NovaImage extends AbstractImageSupport<NovaOpenStack> {
                             }
                         }
                         if( vm == null ) {
-                            throw new CloudException("No such virtual machine: " + vmId);
+                            throw new ResourceNotFoundException("vm",  vmId);
                         }
                         platform = vm.getPlatform();
                         if( !VmState.PENDING.equals(vm.getCurrentState()) ) {
@@ -160,9 +155,9 @@ public class NovaImage extends AbstractImageSupport<NovaOpenStack> {
             }
             JSONObject result;
 
-            if( ((NovaOpenStack)getProvider()).isPostCactus() ) {
-                HashMap<String,Object> json = new HashMap<String,Object>();
-                HashMap<String,String> metaData = new HashMap<String,String>();
+            if( getProvider().isPostCactus() ) {
+                Map<String,Object> json = new HashMap<String,Object>();
+                Map<String,String> metaData = new HashMap<String,String>();
 
                 metaData.put("org.dasein.description", options.getDescription());
                 if( platform != null ) {
@@ -174,7 +169,7 @@ public class NovaImage extends AbstractImageSupport<NovaOpenStack> {
                 result = method.postServers("/servers", vmId, new JSONObject(json), true);
             }
             else {
-                HashMap<String,Object> json = new HashMap<String,Object>();
+                Map<String,Object> json = new HashMap<String,Object>();
 
                 action.put("serverId", String.valueOf(vmId));
                 json.put("image", action);
@@ -193,7 +188,7 @@ public class NovaImage extends AbstractImageSupport<NovaOpenStack> {
                     }
                 }
                 catch( JSONException e ) {
-                    throw new CloudException(e);
+                    throw new CommunicationException("Invalid response", e);
                 }
             }
             else if( result != null && result.has("location") ) {
@@ -220,22 +215,26 @@ public class NovaImage extends AbstractImageSupport<NovaOpenStack> {
                     }
                 }
                 catch( JSONException e ) {
-                    throw new CloudException(e);
+                    throw new CommunicationException("Invalid response", e);
                 }
             }
             logger.error("No image was created by the imaging attempt, and no error was returned");
-            throw new CloudException("No image was created");
+            throw new GeneralCloudException("No image was created", CloudErrorType.GENERAL);
         }
         finally {
             APITrace.end();
         }
     }
 
+    protected ComputeServices getComputeServices() {
+        return getProvider().getComputeServices();
+    }
+
     private transient volatile NovaImageCapabilities capabilities;
     @Override
     public ImageCapabilities getCapabilities() throws CloudException, InternalException {
         if( capabilities == null ) {
-            capabilities = new NovaImageCapabilities((NovaOpenStack)getProvider());
+            capabilities = new NovaImageCapabilities(getProvider());
         }
         return capabilities;
     }
@@ -244,7 +243,7 @@ public class NovaImage extends AbstractImageSupport<NovaOpenStack> {
     public MachineImage getImage(@Nonnull String providerImageId) throws CloudException, InternalException {
         APITrace.begin(getProvider(), "Image.getImage");
         try {
-            NovaMethod method = new NovaMethod((NovaOpenStack)getProvider());
+            NovaMethod method = getMethod();
             JSONObject ob = method.getServers("/images", providerImageId, true);
 
             if( ob == null ) {
@@ -262,28 +261,13 @@ public class NovaImage extends AbstractImageSupport<NovaOpenStack> {
             }
             catch( JSONException e ) {
                 logger.error("getMachineImage(): Unable to identify expected values in JSON: " + e.getMessage());
-                throw new CloudException(CloudErrorType.COMMUNICATION, 200, "invalidJson", "Missing JSON element for images: " + e.getMessage());
+                throw new CommunicationException("Missing JSON element for images: " + e.getMessage(), e);
             }
             return null;
         }
         finally {
             APITrace.begin(getProvider(), "Image.getImage");
         }
-    }
-
-    @Override
-    public @Nonnull String getProviderTermForImage(@Nonnull Locale locale, @Nonnull ImageClass cls) {
-        switch( cls ) {
-            case MACHINE: return "machine image";
-            case KERNEL: return "kernel image";
-            case RAMDISK: return "ramdisk image";
-        }
-        return "image";
-    }
-
-    @Override
-    public boolean hasPublicLibrary() {
-        return true;
     }
 
     @Override
@@ -318,9 +302,9 @@ public class NovaImage extends AbstractImageSupport<NovaOpenStack> {
             if( !cls.equals(ImageClass.MACHINE) ) {
                 return Collections.emptyList();
             }
-            NovaMethod method = new NovaMethod((NovaOpenStack)getProvider());
+            NovaMethod method = new NovaMethod(getProvider());
             JSONObject ob = method.getServers("/images", null, true);
-            ArrayList<ResourceStatus> images = new ArrayList<ResourceStatus>();
+            List<ResourceStatus> images = new ArrayList<>();
 
             try {
                 if( ob != null && ob.has("images") ) {
@@ -338,7 +322,7 @@ public class NovaImage extends AbstractImageSupport<NovaOpenStack> {
                 }
             }
             catch( JSONException e ) {
-                throw new CloudException(CloudErrorType.COMMUNICATION, 200, "invalidJson", "Missing JSON element for images: " + e.getMessage());
+                throw new CommunicationException("Missing JSON element for images: " + e.getMessage(), e);
             }
             return images;
         }
@@ -363,7 +347,7 @@ public class NovaImage extends AbstractImageSupport<NovaOpenStack> {
             }
             NovaMethod method = new NovaMethod((NovaOpenStack)getProvider());
             JSONObject ob = method.getServers("/images", null, true);
-            ArrayList<MachineImage> images = new ArrayList<MachineImage>();
+            List<MachineImage> images = new ArrayList<MachineImage>();
 
             try {
                 if( ob != null && ob.has("images") ) {
@@ -380,7 +364,7 @@ public class NovaImage extends AbstractImageSupport<NovaOpenStack> {
                 }
             }
             catch( JSONException e ) {
-                throw new CloudException(CloudErrorType.COMMUNICATION, 200, "invalidJson", "Missing JSON element for images: " + e.getMessage());
+                throw new CommunicationException("Missing JSON element for images: " + e.getMessage(), e);
             }
             return images;
         }
@@ -393,7 +377,7 @@ public class NovaImage extends AbstractImageSupport<NovaOpenStack> {
     public void remove(@Nonnull String providerImageId, boolean checkState) throws CloudException, InternalException {
         APITrace.begin(getProvider(), "Image.remove");
         try {
-            NovaMethod method = new NovaMethod((NovaOpenStack)getProvider());
+            NovaMethod method = new NovaMethod(getProvider());
             long timeout = System.currentTimeMillis() + CalendarWrapper.HOUR;
 
             do {
@@ -418,9 +402,9 @@ public class NovaImage extends AbstractImageSupport<NovaOpenStack> {
     public @Nonnull Iterable<MachineImage> searchPublicImages(@Nonnull ImageFilterOptions options) throws InternalException, CloudException {
         APITrace.begin(getProvider(), "Image.searchPublicImages");
         try {
-            NovaMethod method = new NovaMethod((NovaOpenStack)getProvider());
+            NovaMethod method = new NovaMethod(getProvider());
             JSONObject ob = method.getServers("/images", null, true);
-            ArrayList<MachineImage> images = new ArrayList<MachineImage>();
+            List<MachineImage> images = new ArrayList<>();
             String me = getTenantId();
 
             try {
@@ -438,7 +422,7 @@ public class NovaImage extends AbstractImageSupport<NovaOpenStack> {
                 }
             }
             catch( JSONException e ) {
-                throw new CloudException(CloudErrorType.COMMUNICATION, 200, "invalidJson", "Missing JSON element for images: " + e.getMessage());
+                throw new CommunicationException("Missing JSON element for images: " + e.getMessage(), e);
             }
             return images;
         }
@@ -447,14 +431,7 @@ public class NovaImage extends AbstractImageSupport<NovaOpenStack> {
         }
     }
 
-    @Override
-    public boolean supportsCustomImages() {
-        return true;
-    }
-
-    public @Nullable MachineImage toImage(@Nullable JSONObject json) throws CloudException, InternalException {
-        Logger logger = NovaOpenStack.getLogger(NovaImage.class, "std");
-        
+    protected @Nullable MachineImage toImage(@Nullable JSONObject json) throws CloudException, InternalException {
         if( logger.isTraceEnabled() ) {
             logger.trace("enter - " + NovaImage.class.getName() + ".toImage(" + json + ")");
         }
@@ -470,7 +447,7 @@ public class NovaImage extends AbstractImageSupport<NovaOpenStack> {
                 JSONObject md = (json.has("metadata") ? json.getJSONObject("metadata") : null);
                 Architecture architecture = Architecture.I64;
                 Platform platform = Platform.UNKNOWN;
-                String owner = ((NovaOpenStack)getProvider()).getCloudProvider().getDefaultImageOwner(getTenantId());
+                String owner = getProvider().getCloudProvider().getDefaultImageOwner(getTenantId());
 
                 if( md != null ) {
                     if( description == null && md.has("org.dasein.description") ) {
@@ -529,7 +506,7 @@ public class NovaImage extends AbstractImageSupport<NovaOpenStack> {
                         owner = getTenantId();
                     }
                 }
-                long created = (json.has("created") ? ((NovaOpenStack)getProvider()).parseTimestamp(json.getString("created")) : -1L);
+                long created = (json.has("created") ? getProvider().parseTimestamp(json.getString("created")) : -1L);
 
                 MachineImageState currentState = MachineImageState.PENDING;
 
@@ -589,17 +566,17 @@ public class NovaImage extends AbstractImageSupport<NovaOpenStack> {
                         }
                     }
                 }
-                boolean bMinSize = false;
-                if(json.has("minDisk")){
-                    bMinSize = true;
-                    image.setTag("minDisk", json.getString("minDisk"));
+                if( json.has("minDisk") ){
+                    image.setMinimumDiskSizeGb(json.getLong("minDisk"));
                 }
-                if(!bMinSize)if(json.has("OS-EXT-IMG-SIZE:size"))image.setTag("minSize", json.getString("OS-EXT-IMG-SIZE:size"));
+                else if( json.has("OS-EXT-IMG-SIZE:size") ) {
+                    image.setMinimumDiskSizeGb(json.getLong("OS-EXT-IMG-SIZE:size"));
+                }
 
                 return image;
             }
             catch( JSONException e ) {
-                throw new CloudException(e);
+                throw new CommunicationException("Invalid response", e);
             }
         }
         finally {
@@ -609,12 +586,12 @@ public class NovaImage extends AbstractImageSupport<NovaOpenStack> {
         }
     }
 
-    public @Nullable ResourceStatus toStatus(@Nullable JSONObject json) throws CloudException, InternalException {
+    protected @Nullable ResourceStatus toStatus(@Nullable JSONObject json) throws CloudException, InternalException {
 
         if( json == null ) {
             return null;
         }
-        String owner = ((NovaOpenStack)getProvider()).getCloudProvider().getDefaultImageOwner(getTenantId());
+        String owner = getProvider().getCloudProvider().getDefaultImageOwner(getTenantId());
         MachineImageState state = MachineImageState.PENDING;
         String id = null;
 
@@ -657,7 +634,7 @@ public class NovaImage extends AbstractImageSupport<NovaOpenStack> {
             }
         }
         catch( JSONException e ) {
-            throw new InternalException(e);
+            throw new CommunicationException("Unable to parse", e);
         }
         if( !owner.equals(getTenantId()) ) {
             return null;

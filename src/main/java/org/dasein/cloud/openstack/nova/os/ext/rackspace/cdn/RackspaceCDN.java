@@ -313,7 +313,7 @@ public class RackspaceCDN implements CDNSupport {
             }
         }
         catch( URISyntaxException e ) {
-            throw new CloudException(e);
+            throw new InternalException(e);
         }
 
         Distribution distribution = new Distribution();

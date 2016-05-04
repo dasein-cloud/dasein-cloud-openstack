@@ -227,7 +227,8 @@ public class RackspaceLBCapabilities extends AbstractCapabilities<NovaOpenStack>
             }
         }
         catch( JSONException e ) {
-            throw new CloudException("Unable to parse protocols from Rackspace: " + e.getMessage());
+            throw new CommunicationException("Unable to parse protocols from Rackspace:" + e.getMessage(), e);
+
         }
         cache.put(getContext(), list);
         return list;
