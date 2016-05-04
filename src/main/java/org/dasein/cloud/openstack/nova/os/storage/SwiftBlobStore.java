@@ -125,7 +125,7 @@ public class SwiftBlobStore extends AbstractBlobStoreSupport<NovaOpenStack> {
         }
     }
 
-    private void createBucket(@Nonnull String name) throws InternalException, CloudException {
+    protected void createBucket(@Nonnull String name) throws InternalException, CloudException {
         APITrace.begin(getProvider(), "Blob.createBucket");
         try {
             try {
@@ -239,7 +239,7 @@ public class SwiftBlobStore extends AbstractBlobStoreSupport<NovaOpenStack> {
         }
     }
 
-    private @Nonnull String findFreeName(@Nonnull String bucket) throws InternalException, CloudException {
+    protected  @Nonnull String findFreeName(@Nonnull String bucket) throws InternalException, CloudException {
         int idx = bucket.lastIndexOf(".");
         String prefix, rawName;
 
@@ -314,7 +314,7 @@ public class SwiftBlobStore extends AbstractBlobStoreSupport<NovaOpenStack> {
         }
     }
 
-    private long getMetaDataLength(@Nonnull Map<String,String> meta) {
+    protected long getMetaDataLength(@Nonnull Map<String,String> meta) {
         return getMetaDataLong("Content-Length", meta);
     }
 

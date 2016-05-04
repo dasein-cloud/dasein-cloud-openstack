@@ -62,7 +62,7 @@ public class CinderVolume extends AbstractVolumeSupport<NovaOpenStack> {
         super(provider);
     }
 
-    private @Nonnull String getAttachmentsResource() {
+    @Nonnull String getAttachmentsResource() {
         return "os-volume_attachments";
     }
 
@@ -72,7 +72,7 @@ public class CinderVolume extends AbstractVolumeSupport<NovaOpenStack> {
         // return ((getProvider()).isHP() ? "/os-volumes" : "/volumes");
     }
 
-    private @Nonnull String getTypesResource() {
+    @Nonnull String getTypesResource() {
         return "/types";
     }
 
@@ -117,11 +117,11 @@ public class CinderVolume extends AbstractVolumeSupport<NovaOpenStack> {
 
             Storage<Gigabyte> size = options.getVolumeSize();
 
-            if( size == null || (size.intValue() < getMinimumVolumeSize().intValue()) ) {
-                size = getMinimumVolumeSize();
+            if( size == null || (size.intValue() < getCapabilities().getMinimumVolumeSize().intValue()) ) {
+                size = getCapabilities().getMinimumVolumeSize();
             }
-            else if( getMaximumVolumeSize() != null && size.intValue() > getMaximumVolumeSize().intValue() ) {
-                size = getMaximumVolumeSize();
+            else if( getCapabilities().getMaximumVolumeSize() != null && size.intValue() > getCapabilities().getMaximumVolumeSize().intValue() ) {
+                size = getCapabilities().getMaximumVolumeSize();
             }
             json.put("size", size.intValue());
             if( options.getSnapshotId() != null ) {
@@ -218,15 +218,23 @@ public class CinderVolume extends AbstractVolumeSupport<NovaOpenStack> {
         }
     }
 
+    private Iterable<VolumeProduct> getCachedProducts() throws InternalException {
+        Cache<VolumeProduct> cache = Cache.getInstance(getProvider(), "volumeProducts", VolumeProduct.class, CacheLevel.REGION_ACCOUNT);
+        return cache.get(getContext());
+    }
+
+    private void saveProductsToCache(Iterable<VolumeProduct> products) throws InternalException {
+        Cache<VolumeProduct> cache = Cache.getInstance(getProvider(), "volumeProducts", VolumeProduct.class, CacheLevel.REGION_ACCOUNT);
+        cache.put(getContext(), products);
+    }
+
     @Override
     public @Nonnull Iterable<VolumeProduct> listVolumeProducts() throws InternalException, CloudException {
         APITrace.begin(getProvider(), "Volume.listVolumeProducts");
         try {
-            Cache<VolumeProduct> cache = Cache.getInstance(getProvider(), "volumeProducts", VolumeProduct.class, CacheLevel.REGION_ACCOUNT);
-            Iterable<VolumeProduct> current = cache.get(getContext());
-
-            if( current != null ) {
-                return current;
+            Iterable<VolumeProduct> cached = getCachedProducts();
+            if( cached != null ) {
+                return cached;
             }
             NovaMethod method = new NovaMethod(getProvider());
             List<VolumeProduct> products = new ArrayList<>();
@@ -273,7 +281,7 @@ public class CinderVolume extends AbstractVolumeSupport<NovaOpenStack> {
                     throw new CommunicationException("Unable to understand listVolumes response: " + e.getMessage(), e);
                 }
             }
-            cache.put(getContext(), Collections.unmodifiableList(products));
+            saveProductsToCache(products);
             return products;
         }
         finally {
@@ -409,7 +417,7 @@ public class CinderVolume extends AbstractVolumeSupport<NovaOpenStack> {
         }
     }
 
-    private @Nullable ResourceStatus toStatus(@Nullable JSONObject json) throws CloudException, InternalException {
+    protected  @Nullable ResourceStatus toStatus(@Nullable JSONObject json) throws CloudException, InternalException {
         if( json == null ) {
             return null;
         }
@@ -454,7 +462,7 @@ public class CinderVolume extends AbstractVolumeSupport<NovaOpenStack> {
         }
     }
 
-    private @Nullable Volume toVolume(@Nullable JSONObject json, @Nonnull Iterable<VolumeProduct> types) throws CloudException, InternalException {
+    protected  @Nullable Volume toVolume(@Nullable JSONObject json, @Nonnull Iterable<VolumeProduct> types) throws CloudException, InternalException {
         if( json == null ) {
             return null;
         }

@@ -104,7 +104,7 @@ public class CinderSnapshot extends AbstractSnapshotSupport<NovaOpenStack> {
                 }
             }
             logger.error("snapshot(): No snapshot was created by the create attempt, and no error was returned");
-            throw new GeneralCloudException("No listener was created", CloudErrorType.GENERAL);
+            throw new GeneralCloudException("No snapshot was created", CloudErrorType.GENERAL);
 
         }
         finally {
@@ -315,7 +315,7 @@ public class CinderSnapshot extends AbstractSnapshotSupport<NovaOpenStack> {
         return new String[0];
     }
 
-    private @Nullable Snapshot toSnapshot(@Nullable JSONObject json) throws CloudException, InternalException {
+    @Nullable Snapshot toSnapshot( @Nullable JSONObject json ) throws CloudException, InternalException {
         if( json == null ) {
             return null;
         }
@@ -394,7 +394,7 @@ public class CinderSnapshot extends AbstractSnapshotSupport<NovaOpenStack> {
         }
     }
 
-    private @Nullable ResourceStatus toStatus(@Nullable JSONObject json) throws CloudException, InternalException {
+    protected  @Nullable ResourceStatus toStatus(@Nullable JSONObject json) throws CloudException, InternalException {
         if( json == null ) {
             return null;
         }

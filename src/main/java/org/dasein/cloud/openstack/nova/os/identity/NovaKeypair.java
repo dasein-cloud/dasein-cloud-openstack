@@ -306,7 +306,7 @@ public class NovaKeypair extends AbstractShellKeySupport<NovaOpenStack> {
         return new String[0];
     }
     
-    private @Nullable SSHKeypair toKeypair(@Nullable JSONObject json) throws InternalException, CloudException {
+    protected  @Nullable SSHKeypair toKeypair(@Nullable JSONObject json) throws InternalException, CloudException {
         if( json == null ) {
             return null;
         }
